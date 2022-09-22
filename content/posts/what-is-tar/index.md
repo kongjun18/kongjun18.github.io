@@ -1,5 +1,5 @@
 ---
-title: "Tarball到底是什么"
+title: "什么是 tar"
 date: 2022-09-21T17:42:25+08:00
 author: "Kong Jun"
 authorLink: "https://github.com/kongjun18"
@@ -19,9 +19,9 @@ hiddenFromSearch: false
 
 resources:
 - name: featured-image
-  src: featured-image.jpg
+  src: targzip.png
 - name: featured-image-preview
-  src: featured-image-preview.jpg
+  src: targzip.png
 
 toc:
   enable: true
@@ -36,7 +36,7 @@ repost:
   url: ""
 ---
 
-# tarball 到底是什么
+# 什么是 tar
 
 ## 历史
 
