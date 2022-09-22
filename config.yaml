@@ -17,6 +17,9 @@ params: # 覆盖默认选项
   footer:
     license: "All rights reserved" # copyright
     since: 2022 # 网站创建时间
+  page:
+    code:
+      maxShownLines: 40
   author: # 作者信息，用于 archetypes 模版
     name: "Kong Jun"
     email: "kongjun18@outlook.com"
