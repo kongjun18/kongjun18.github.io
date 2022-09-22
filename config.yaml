@@ -1,4 +1,4 @@
-baseURL: "https://blog.kongjun-net.xyz" # FIXME: 使用正确网址
+baseURL: "https://kongjun18.github.io/"
 defaultContentLanguage: "zh-cn" # 默认语言为中文
 languageCode: "zh-CN" #　使用中文
 hasCJKLanguage: true # 启用对东亚文字的支持
