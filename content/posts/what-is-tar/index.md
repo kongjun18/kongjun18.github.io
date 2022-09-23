@@ -19,9 +19,9 @@ hiddenFromSearch: false
 
 resources:
 - name: featured-image
-  src: targzip.png
+  src: featured-image.png
 - name: featured-image-preview
-  src: targzip.png
+  src: featured-image.png
 
 toc:
   enable: true
