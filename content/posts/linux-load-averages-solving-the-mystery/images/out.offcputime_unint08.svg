@@ -1,0 +1,1183 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="900" height="498" onload="init(evt)" viewBox="0 0 900 498" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<defs >
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#f8f8f8" offset="5%" />
+		<stop stop-color="#e8e8e8" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	.func_g:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	var details, searchbtn, matchedtxt, svg;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	// mouse-over for info
+	function s(node) {		// show
+		info = g_to_text(node);
+		details.nodeValue = "Function: " + info;
+	}
+	function c() {			// clear
+		details.nodeValue = ' ';
+	}
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	})
+
+	// functions
+	function find_child(parent, name, attr) {
+		var children = parent.childNodes;
+		for (var i=0; i<children.length;i++) {
+			if (children[i].tagName == name)
+				return (attr != undefined) ? children[i].attributes[attr].value : children[i];
+		}
+		return;
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_"+attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_"+attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_"+attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes["width"].value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes["x"].value = parseFloat(r.attributes["x"].value) +3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2*12*0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x=txt.length-2; x>0; x--) {
+			if (t.getSubStringLength(0, x+2) <= w) {
+				t.textContent = txt.substring(0,x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = (parseFloat(e.attributes["x"].value) - x - 10) * ratio + 10;
+				if(e.tagName == "text") e.attributes["x"].value = find_child(e.parentNode, "rect", "x") + 3;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseFloat(e.attributes["width"].value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_child(c[i], x-10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = 10;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseInt(svg.width.baseVal.value) - (10*2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr["width"].value);
+		var xmin = parseFloat(attr["x"].value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr["y"].value);
+		var ratio = (svg.width.baseVal.value - 2*10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "1.0";
+
+		var el = document.getElementsByTagName("g");
+		for(var i=0;i<el.length;i++){
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a["x"].value);
+			var ew = parseFloat(a["width"].value);
+			// Is it an ancestor
+			if (0 == 0) {
+				var upstack = parseFloat(a["y"].value) > ymin;
+			} else {
+				var upstack = parseFloat(a["y"].value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.style["opacity"] = "0.5";
+					zoom_parent(e);
+					e.onclick = function(e){unzoom(); zoom(this);};
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.style["display"] = "none";
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.style["display"] = "none";
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					e.onclick = function(e){zoom(this);};
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "0.0";
+
+		var el = document.getElementsByTagName("g");
+		for(i=0;i<el.length;i++) {
+			el[i].style["display"] = "block";
+			el[i].style["opacity"] = "1";
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.getElementsByTagName("rect");
+		for (var i=0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.style["opacity"] = "0.1";
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.style["opacity"] = "0.0";
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementsByTagName("g");
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			if (e.attributes["class"].value != "func_g")
+				continue;
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (rect == null) {
+				// the rect might be wrapped in an anchor
+				// if nameattr href is being used
+				if (rect = find_child(e, "a")) {
+				    rect = find_child(r, "rect");
+				}
+			}
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes["width"].value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes["x"].value);
+				orig_save(rect, "fill");
+				rect.attributes["fill"].value =
+				    "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.style["opacity"] = "1.0";
+		searchbtn.firstChild.nodeValue = "Reset Search"
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+				return a - b;
+			if (a < b || a > b)
+				return a - b;
+			return matches[b] - matches[a];
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.style["opacity"] = "1.0";
+		pct = 100 * count / maxwidth;
+		if (pct == 100)
+			pct = "100"
+		else
+			pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+	function searchover(e) {
+		searchbtn.style["opacity"] = "1.0";
+	}
+	function searchout(e) {
+		if (searching) {
+			searchbtn.style["opacity"] = "1.0";
+		} else {
+			searchbtn.style["opacity"] = "0.1";
+		}
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="900.0" height="498.0" fill="url(#background)"  />
+<text text-anchor="middle" x="450.00" y="24" font-size="17" font-family="Verdana" fill="rgb(0,0,0)"  >Kernel Uninterruptible Off-CPU Flame Graph (60 secs)</text>
+<text text-anchor="" x="10.00" y="481" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="details" > </text>
+<text text-anchor="" x="10.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="unzoom" onclick="unzoom()" style="opacity:0.0;cursor:pointer" >Reset Zoom</text>
+<text text-anchor="" x="790.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="search" onmouseover="searchover()" onmouseout="searchout()" onclick="search_prompt()" style="opacity:0.1;cursor:pointer" >Search</text>
+<text text-anchor="" x="790.00" y="481" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="matched" > </text>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__blk_mq_alloc_request (3,086 ms, 6.43%)</title><rect x="77.7" y="129" width="56.6" height="15.0" fill="rgb(83,83,214)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__blk..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>writeback_sb_inodes (3,684 ms, 7.67%)</title><rect x="10.1" y="305" width="67.6" height="15.0" fill="rgb(120,120,192)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >writeba..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wb_writeback (3,102 ms, 6.46%)</title><rect x="77.7" y="337" width="56.8" height="15.0" fill="rgb(106,106,233)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wb_wri..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (16 ms, 0.03%)</title><rect x="143.1" y="49" width="0.3" height="15.0" fill="rgb(101,101,204)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>generic_make_request (3,086 ms, 6.43%)</title><rect x="77.7" y="177" width="56.6" height="15.0" fill="rgb(81,81,218)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >gener..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_writepages (3,102 ms, 6.46%)</title><rect x="77.7" y="273" width="56.8" height="15.0" fill="rgb(89,89,198)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >do_wri..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_xfs_log_force (43 ms, 0.09%)</title><rect x="889.2" y="353" width="0.8" height="15.0" fill="rgb(128,128,208)" rx="2" ry="2" />
+<text text-anchor="" x="892.20" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_readdir (418 ms, 0.87%)</title><rect x="134.5" y="353" width="7.7" height="15.0" fill="rgb(126,126,210)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_lookup (1,679 ms, 3.50%)</title><rect x="142.2" y="257" width="30.8" height="15.0" fill="rgb(97,97,222)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (38,808 ms, 80.85%)</title><rect x="177.7" y="209" width="711.5" height="15.0" fill="rgb(97,97,203)" rx="2" ry="2" />
+<text text-anchor="" x="180.71" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >finish_task_switch</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bt_get.isra.6 (29 ms, 0.06%)</title><rect x="177.2" y="113" width="0.5" height="15.0" fill="rgb(130,130,223)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bt_get.isra.6 (15 ms, 0.03%)</title><rect x="134.3" y="129" width="0.2" height="15.0" fill="rgb(139,139,233)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir_lookup (66 ms, 0.14%)</title><rect x="142.2" y="241" width="1.2" height="15.0" fill="rgb(126,126,194)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (38,808 ms, 80.85%)</title><rect x="177.7" y="257" width="711.5" height="15.0" fill="rgb(105,105,202)" rx="2" ry="2" />
+<text text-anchor="" x="180.71" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io_schedule_timeout</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_map_request (15 ms, 0.03%)</title><rect x="134.3" y="177" width="0.2" height="15.0" fill="rgb(125,125,202)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (89 ms, 0.19%)</title><rect x="140.6" y="161" width="1.6" height="15.0" fill="rgb(128,128,195)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (38,808 ms, 80.85%)</title><rect x="177.7" y="225" width="711.5" height="15.0" fill="rgb(110,110,192)" rx="2" ry="2" />
+<text text-anchor="" x="180.71" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir2_leaf_readbuf (89 ms, 0.19%)</title><rect x="140.6" y="321" width="1.6" height="15.0" fill="rgb(93,93,197)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wb_workfn (3,684 ms, 7.67%)</title><rect x="10.1" y="353" width="67.6" height="15.0" fill="rgb(134,134,204)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wb_workfn</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (49 ms, 0.10%)</title><rect x="142.2" y="65" width="0.9" height="15.0" fill="rgb(101,101,206)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (15 ms, 0.03%)</title><rect x="134.3" y="113" width="0.2" height="15.0" fill="rgb(82,82,239)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_trans_read_buf_map (49 ms, 0.10%)</title><rect x="142.2" y="161" width="0.9" height="15.0" fill="rgb(122,122,212)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_submit_wait (49 ms, 0.10%)</title><rect x="142.2" y="113" width="0.9" height="15.0" fill="rgb(126,126,235)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__down (89 ms, 0.19%)</title><rect x="140.6" y="177" width="1.6" height="15.0" fill="rgb(87,87,221)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir3_leaf_read.constprop.16 (49 ms, 0.10%)</title><rect x="142.2" y="193" width="0.9" height="15.0" fill="rgb(106,106,240)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_read_map (89 ms, 0.19%)</title><rect x="140.6" y="257" width="1.6" height="15.0" fill="rgb(114,114,235)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mpage_readpages (230 ms, 0.48%)</title><rect x="173.0" y="241" width="4.2" height="15.0" fill="rgb(128,128,208)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__do_page_cache_readahead (29 ms, 0.06%)</title><rect x="177.2" y="273" width="0.5" height="15.0" fill="rgb(139,139,233)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down (328 ms, 0.68%)</title><rect x="134.5" y="209" width="6.1" height="15.0" fill="rgb(98,98,218)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_xfs_buf_read (1,613 ms, 3.36%)</title><rect x="143.4" y="161" width="29.6" height="15.0" fill="rgb(94,94,194)" rx="2" ry="2" />
+<text text-anchor="" x="146.40" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_x..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_file_buffered_aio_read (39,067 ms, 81.39%)</title><rect x="173.0" y="337" width="716.2" height="15.0" fill="rgb(131,131,203)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xfs_file_buffered_aio_read</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>tar (41,164 ms, 85.76%)</title><rect x="134.5" y="433" width="754.7" height="15.0" fill="rgb(118,118,237)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >tar</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (15 ms, 0.03%)</title><rect x="134.3" y="97" width="0.2" height="15.0" fill="rgb(132,132,197)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_vm_writepages (3,102 ms, 6.46%)</title><rect x="77.7" y="257" width="56.8" height="15.0" fill="rgb(115,115,221)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xfs_vm..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_get_tag (15 ms, 0.03%)</title><rect x="134.3" y="145" width="0.2" height="15.0" fill="rgb(86,86,240)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__blk_mq_alloc_request (230 ms, 0.48%)</title><rect x="173.0" y="145" width="4.2" height="15.0" fill="rgb(83,83,203)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_submit_wait (16 ms, 0.03%)</title><rect x="143.1" y="113" width="0.3" height="15.0" fill="rgb(100,100,206)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_do_writepage (3,665 ms, 7.64%)</title><rect x="10.1" y="225" width="67.2" height="15.0" fill="rgb(130,130,217)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xfs_do_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_submit_ioend.isra.15 (19 ms, 0.04%)</title><rect x="77.3" y="241" width="0.4" height="15.0" fill="rgb(126,126,209)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_read_map (49 ms, 0.10%)</title><rect x="142.2" y="145" width="0.9" height="15.0" fill="rgb(131,131,206)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_xfs_buf_read (49 ms, 0.10%)</title><rect x="142.2" y="129" width="0.9" height="15.0" fill="rgb(103,103,204)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_newfstatat (1,679 ms, 3.50%)</title><rect x="142.2" y="401" width="30.8" height="15.0" fill="rgb(83,83,211)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sy..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>entry_SYSCALL_64_fastpath (41,163 ms, 85.75%)</title><rect x="134.5" y="417" width="754.7" height="15.0" fill="rgb(139,139,225)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >entry_SYSCALL_64_fastpath</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (29 ms, 0.06%)</title><rect x="177.2" y="49" width="0.5" height="15.0" fill="rgb(109,109,208)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_sq_make_request (19 ms, 0.04%)</title><rect x="77.3" y="193" width="0.4" height="15.0" fill="rgb(134,134,219)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__writeback_inodes_wb (3,684 ms, 7.67%)</title><rect x="10.1" y="321" width="67.6" height="15.0" fill="rgb(134,134,235)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__write..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_map_request (19 ms, 0.04%)</title><rect x="77.3" y="177" width="0.4" height="15.0" fill="rgb(95,95,200)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (15 ms, 0.03%)</title><rect x="134.3" y="65" width="0.2" height="15.0" fill="rgb(107,107,212)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (16 ms, 0.03%)</title><rect x="143.1" y="65" width="0.3" height="15.0" fill="rgb(114,114,230)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>write_cache_pages (3,086 ms, 6.43%)</title><rect x="77.7" y="241" width="56.6" height="15.0" fill="rgb(96,96,236)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >write..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (3,684 ms, 7.67%)</title><rect x="10.1" y="417" width="67.6" height="15.0" fill="rgb(88,88,191)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret_fro..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__blk_mq_alloc_request (19 ms, 0.04%)</title><rect x="77.3" y="161" width="0.4" height="15.0" fill="rgb(88,88,221)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_map_request (3,665 ms, 7.64%)</title><rect x="10.1" y="145" width="67.2" height="15.0" fill="rgb(130,130,217)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >blk_mq_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir2_leaf_lookup_int (49 ms, 0.10%)</title><rect x="142.2" y="209" width="0.9" height="15.0" fill="rgb(89,89,207)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SyS_getdents (418 ms, 0.87%)</title><rect x="134.5" y="401" width="7.7" height="15.0" fill="rgb(82,82,222)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (49 ms, 0.10%)</title><rect x="142.2" y="81" width="0.9" height="15.0" fill="rgb(105,105,214)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wb_workfn (3,102 ms, 6.46%)</title><rect x="77.7" y="353" width="56.8" height="15.0" fill="rgb(120,120,199)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wb_wor..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mpage_bio_submit (230 ms, 0.48%)</title><rect x="173.0" y="225" width="4.2" height="15.0" fill="rgb(90,90,232)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>submit_bio (29 ms, 0.06%)</title><rect x="177.2" y="209" width="0.5" height="15.0" fill="rgb(112,112,202)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>vfs_read (39,067 ms, 81.39%)</title><rect x="173.0" y="385" width="716.2" height="15.0" fill="rgb(110,110,222)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >vfs_read</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (1,610 ms, 3.35%)</title><rect x="143.5" y="97" width="29.5" height="15.0" fill="rgb(130,130,234)" rx="2" ry="2" />
+<text text-anchor="" x="146.45" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mpage_bio_submit (29 ms, 0.06%)</title><rect x="177.2" y="225" width="0.5" height="15.0" fill="rgb(104,104,219)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_iget (1,613 ms, 3.36%)</title><rect x="143.4" y="241" width="29.6" height="15.0" fill="rgb(81,81,230)" rx="2" ry="2" />
+<text text-anchor="" x="146.40" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wb_writeback (3,684 ms, 7.67%)</title><rect x="10.1" y="337" width="67.6" height="15.0" fill="rgb(101,101,209)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wb_writ..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_trans_read_buf_map (16 ms, 0.03%)</title><rect x="143.1" y="161" width="0.3" height="15.0" fill="rgb(80,80,205)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir3_data_read (89 ms, 0.19%)</title><rect x="140.6" y="305" width="1.6" height="15.0" fill="rgb(120,120,221)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_do_writepage (3,086 ms, 6.43%)</title><rect x="77.7" y="225" width="56.6" height="15.0" fill="rgb(81,81,200)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xfs_d..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__writeback_single_inode (3,102 ms, 6.46%)</title><rect x="77.7" y="289" width="56.8" height="15.0" fill="rgb(122,122,199)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__writ..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>iterate_dir (418 ms, 0.87%)</title><rect x="134.5" y="385" width="7.7" height="15.0" fill="rgb(82,82,194)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_da3_node_read (16 ms, 0.03%)</title><rect x="143.1" y="193" width="0.3" height="15.0" fill="rgb(81,81,203)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_get_tag (19 ms, 0.04%)</title><rect x="77.3" y="145" width="0.4" height="15.0" fill="rgb(111,111,230)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir3_block_read (328 ms, 0.68%)</title><rect x="134.5" y="321" width="6.1" height="15.0" fill="rgb(130,130,209)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_da_read_buf (328 ms, 0.68%)</title><rect x="134.5" y="305" width="6.1" height="15.0" fill="rgb(113,113,215)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (3,684 ms, 7.67%)</title><rect x="10.1" y="385" width="67.6" height="15.0" fill="rgb(111,111,220)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >worker_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__blk_mq_alloc_request (29 ms, 0.06%)</title><rect x="177.2" y="145" width="0.5" height="15.0" fill="rgb(125,125,240)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir2_leaf_lookup (49 ms, 0.10%)</title><rect x="142.2" y="225" width="0.9" height="15.0" fill="rgb(88,88,243)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>generic_make_request (15 ms, 0.03%)</title><rect x="134.3" y="209" width="0.2" height="15.0" fill="rgb(93,93,199)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfsaild/md0 (45 ms, 0.09%)</title><rect x="889.2" y="433" width="0.8" height="15.0" fill="rgb(100,100,190)" rx="2" ry="2" />
+<text text-anchor="" x="892.18" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_read_map (328 ms, 0.68%)</title><rect x="134.5" y="273" width="6.1" height="15.0" fill="rgb(91,91,190)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/u16:2 (3,684 ms, 7.67%)</title><rect x="10.1" y="433" width="67.6" height="15.0" fill="rgb(125,125,236)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kworker..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_on_page_bit_killable (38,808 ms, 80.85%)</title><rect x="177.7" y="305" width="711.5" height="15.0" fill="rgb(106,106,198)" rx="2" ry="2" />
+<text text-anchor="" x="180.71" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wait_on_page_bit_killable</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_xfs_buf_read (16 ms, 0.03%)</title><rect x="143.1" y="129" width="0.3" height="15.0" fill="rgb(117,117,234)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>generic_make_request (230 ms, 0.48%)</title><rect x="173.0" y="193" width="4.2" height="15.0" fill="rgb(119,119,190)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>generic_make_request (29 ms, 0.06%)</title><rect x="177.2" y="193" width="0.5" height="15.0" fill="rgb(121,121,223)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_read_map (1,613 ms, 3.36%)</title><rect x="143.4" y="177" width="29.6" height="15.0" fill="rgb(82,82,204)" rx="2" ry="2" />
+<text text-anchor="" x="146.40" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (328 ms, 0.68%)</title><rect x="134.5" y="145" width="6.1" height="15.0" fill="rgb(91,91,196)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (19 ms, 0.04%)</title><rect x="77.3" y="65" width="0.4" height="15.0" fill="rgb(84,84,204)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__do_page_cache_readahead (230 ms, 0.48%)</title><rect x="173.0" y="273" width="4.2" height="15.0" fill="rgb(105,105,197)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_get_map (89 ms, 0.19%)</title><rect x="140.6" y="241" width="1.6" height="15.0" fill="rgb(113,113,239)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (19 ms, 0.04%)</title><rect x="77.3" y="81" width="0.4" height="15.0" fill="rgb(120,120,205)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_file_readdir (418 ms, 0.87%)</title><rect x="134.5" y="369" width="7.7" height="15.0" fill="rgb(94,94,227)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_trans_read_buf_map (1,613 ms, 3.36%)</title><rect x="143.4" y="193" width="29.6" height="15.0" fill="rgb(101,101,235)" rx="2" ry="2" />
+<text text-anchor="" x="146.40" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>page_cache_sync_readahead (29 ms, 0.06%)</title><rect x="177.2" y="305" width="0.5" height="15.0" fill="rgb(112,112,196)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__vfs_read (39,067 ms, 81.39%)</title><rect x="173.0" y="369" width="716.2" height="15.0" fill="rgb(88,88,208)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__vfs_read</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (29 ms, 0.06%)</title><rect x="177.2" y="97" width="0.5" height="15.0" fill="rgb(107,107,218)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mpage_readpages (29 ms, 0.06%)</title><rect x="177.2" y="241" width="0.5" height="15.0" fill="rgb(83,83,204)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>walk_component (1,679 ms, 3.50%)</title><rect x="142.2" y="305" width="30.8" height="15.0" fill="rgb(80,80,233)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wa..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfsaild (45 ms, 0.09%)</title><rect x="889.2" y="385" width="0.8" height="15.0" fill="rgb(82,82,226)" rx="2" ry="2" />
+<text text-anchor="" x="892.18" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_imap_to_bp (1,613 ms, 3.36%)</title><rect x="143.4" y="209" width="29.6" height="15.0" fill="rgb(127,127,241)" rx="2" ry="2" />
+<text text-anchor="" x="146.40" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_file_read_iter (39,067 ms, 81.39%)</title><rect x="173.0" y="353" width="716.2" height="15.0" fill="rgb(103,103,237)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xfs_file_read_iter</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_read (39,067 ms, 81.39%)</title><rect x="173.0" y="401" width="716.2" height="15.0" fill="rgb(83,83,235)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sys_read</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_vm_writepages (3,684 ms, 7.67%)</title><rect x="10.1" y="257" width="67.6" height="15.0" fill="rgb(116,116,230)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xfs_vm_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (29 ms, 0.06%)</title><rect x="177.2" y="65" width="0.5" height="15.0" fill="rgb(120,120,223)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (1,610 ms, 3.35%)</title><rect x="143.5" y="81" width="29.5" height="15.0" fill="rgb(138,138,210)" rx="2" ry="2" />
+<text text-anchor="" x="146.45" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fi..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (230 ms, 0.48%)</title><rect x="173.0" y="97" width="4.2" height="15.0" fill="rgb(93,93,234)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_map_request (3,086 ms, 6.43%)</title><rect x="77.7" y="145" width="56.6" height="15.0" fill="rgb(119,119,224)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >blk_m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_get_tag (3,086 ms, 6.43%)</title><rect x="77.7" y="113" width="56.6" height="15.0" fill="rgb(109,109,206)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >blk_m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>generic_make_request (19 ms, 0.04%)</title><rect x="77.3" y="209" width="0.4" height="15.0" fill="rgb(134,134,191)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bit_wait_io (38,808 ms, 80.85%)</title><rect x="177.7" y="273" width="711.5" height="15.0" fill="rgb(112,112,214)" rx="2" ry="2" />
+<text text-anchor="" x="180.71" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >bit_wait_io</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir2_block_getdents.isra.9 (328 ms, 0.68%)</title><rect x="134.5" y="337" width="6.1" height="15.0" fill="rgb(84,84,203)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>submit_bio (3,665 ms, 7.64%)</title><rect x="10.1" y="193" width="67.2" height="15.0" fill="rgb(90,90,231)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >submit_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_map_request (230 ms, 0.48%)</title><rect x="173.0" y="161" width="4.2" height="15.0" fill="rgb(117,117,236)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>writeback_sb_inodes (3,102 ms, 6.46%)</title><rect x="77.7" y="305" width="56.8" height="15.0" fill="rgb(112,112,230)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >writeb..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__down (328 ms, 0.68%)</title><rect x="134.5" y="193" width="6.1" height="15.0" fill="rgb(109,109,239)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_iread (1,613 ms, 3.36%)</title><rect x="143.4" y="225" width="29.6" height="15.0" fill="rgb(87,87,216)" rx="2" ry="2" />
+<text text-anchor="" x="146.40" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (45 ms, 0.09%)</title><rect x="889.2" y="401" width="0.8" height="15.0" fill="rgb(103,103,192)" rx="2" ry="2" />
+<text text-anchor="" x="892.18" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_submit_wait (1,613 ms, 3.36%)</title><rect x="143.4" y="145" width="29.6" height="15.0" fill="rgb(137,137,207)" rx="2" ry="2" />
+<text text-anchor="" x="146.40" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (3,665 ms, 7.64%)</title><rect x="10.1" y="33" width="67.2" height="15.0" fill="rgb(86,86,238)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >finish_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (3,684 ms, 7.67%)</title><rect x="10.1" y="401" width="67.6" height="15.0" fill="rgb(131,131,202)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kthread</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down (89 ms, 0.19%)</title><rect x="140.6" y="193" width="1.6" height="15.0" fill="rgb(86,86,208)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>write_cache_pages (3,665 ms, 7.64%)</title><rect x="10.1" y="241" width="67.2" height="15.0" fill="rgb(106,106,236)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >write_c..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (19 ms, 0.04%)</title><rect x="77.3" y="97" width="0.4" height="15.0" fill="rgb(90,90,239)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_bit (38,808 ms, 80.85%)</title><rect x="177.7" y="289" width="711.5" height="15.0" fill="rgb(87,87,241)" rx="2" ry="2" />
+<text text-anchor="" x="180.71" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__wait_on_bit</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (15 ms, 0.03%)</title><rect x="134.3" y="81" width="0.2" height="15.0" fill="rgb(121,121,215)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>filename_lookup (1,679 ms, 3.50%)</title><rect x="142.2" y="337" width="30.8" height="15.0" fill="rgb(136,136,204)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fi..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (3,086 ms, 6.43%)</title><rect x="77.7" y="33" width="56.6" height="15.0" fill="rgb(82,82,214)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >finis..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>generic_make_request (3,665 ms, 7.64%)</title><rect x="10.1" y="177" width="67.2" height="15.0" fill="rgb(107,107,203)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >generic..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>page_cache_async_readahead (230 ms, 0.48%)</title><rect x="173.0" y="305" width="4.2" height="15.0" fill="rgb(107,107,241)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (3,102 ms, 6.46%)</title><rect x="77.7" y="417" width="56.8" height="15.0" fill="rgb(91,91,218)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret_fr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (3,102 ms, 6.46%)</title><rect x="77.7" y="401" width="56.8" height="15.0" fill="rgb(125,125,220)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kthread</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_submit_ioend.isra.15 (15 ms, 0.03%)</title><rect x="134.3" y="241" width="0.2" height="15.0" fill="rgb(85,85,226)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (38,808 ms, 80.85%)</title><rect x="177.7" y="241" width="711.5" height="15.0" fill="rgb(125,125,237)" rx="2" ry="2" />
+<text text-anchor="" x="180.71" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule_timeout</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ondemand_readahead (230 ms, 0.48%)</title><rect x="173.0" y="289" width="4.2" height="15.0" fill="rgb(103,103,229)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_sq_make_request (3,665 ms, 7.64%)</title><rect x="10.1" y="161" width="67.2" height="15.0" fill="rgb(95,95,193)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >blk_sq_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_sq_make_request (15 ms, 0.03%)</title><rect x="134.3" y="193" width="0.2" height="15.0" fill="rgb(101,101,224)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (29 ms, 0.06%)</title><rect x="177.2" y="81" width="0.5" height="15.0" fill="rgb(91,91,229)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_da_read_buf (89 ms, 0.19%)</title><rect x="140.6" y="289" width="1.6" height="15.0" fill="rgb(94,94,198)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_xfs_buf_find (328 ms, 0.68%)</title><rect x="134.5" y="241" width="6.1" height="15.0" fill="rgb(103,103,215)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir2_node_lookup (16 ms, 0.03%)</title><rect x="143.1" y="225" width="0.3" height="15.0" fill="rgb(115,115,220)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_add_to_ioend (3,665 ms, 7.64%)</title><rect x="10.1" y="209" width="67.2" height="15.0" fill="rgb(107,107,201)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xfs_add..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (230 ms, 0.48%)</title><rect x="173.0" y="65" width="4.2" height="15.0" fill="rgb(89,89,227)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (230 ms, 0.48%)</title><rect x="173.0" y="49" width="4.2" height="15.0" fill="rgb(81,81,202)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>generic_file_read_iter (39,067 ms, 81.39%)</title><rect x="173.0" y="321" width="716.2" height="15.0" fill="rgb(100,100,236)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >generic_file_read_iter</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_sq_make_request (3,086 ms, 6.43%)</title><rect x="77.7" y="161" width="56.6" height="15.0" fill="rgb(120,120,223)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >blk_s..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bt_get.isra.6 (19 ms, 0.04%)</title><rect x="77.3" y="129" width="0.4" height="15.0" fill="rgb(87,87,207)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>path_lookupat (1,679 ms, 3.50%)</title><rect x="142.2" y="321" width="30.8" height="15.0" fill="rgb(101,101,209)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >pa..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_sq_make_request (29 ms, 0.06%)</title><rect x="177.2" y="177" width="0.5" height="15.0" fill="rgb(133,133,217)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (3,086 ms, 6.43%)</title><rect x="77.7" y="81" width="56.6" height="15.0" fill="rgb(83,83,208)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io_sc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (3,086 ms, 6.43%)</title><rect x="77.7" y="65" width="56.6" height="15.0" fill="rgb(125,125,193)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sched..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (3,102 ms, 6.46%)</title><rect x="77.7" y="385" width="56.8" height="15.0" fill="rgb(92,92,205)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >worker..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (16 ms, 0.03%)</title><rect x="143.1" y="97" width="0.3" height="15.0" fill="rgb(134,134,214)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (328 ms, 0.68%)</title><rect x="134.5" y="177" width="6.1" height="15.0" fill="rgb(136,136,220)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (16 ms, 0.03%)</title><rect x="143.1" y="81" width="0.3" height="15.0" fill="rgb(100,100,239)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SYSC_newfstatat (1,679 ms, 3.50%)</title><rect x="142.2" y="385" width="30.8" height="15.0" fill="rgb(139,139,219)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >SY..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_get_tag (230 ms, 0.48%)</title><rect x="173.0" y="129" width="4.2" height="15.0" fill="rgb(133,133,210)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (3,102 ms, 6.46%)</title><rect x="77.7" y="369" width="56.8" height="15.0" fill="rgb(125,125,240)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >proces..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ondemand_readahead (29 ms, 0.06%)</title><rect x="177.2" y="289" width="0.5" height="15.0" fill="rgb(124,124,191)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>lookup_slow (1,679 ms, 3.50%)</title><rect x="142.2" y="289" width="30.8" height="15.0" fill="rgb(83,83,232)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >lo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_sq_make_request (230 ms, 0.48%)</title><rect x="173.0" y="177" width="4.2" height="15.0" fill="rgb(82,82,215)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user_path_at_empty (1,679 ms, 3.50%)</title><rect x="142.2" y="353" width="30.8" height="15.0" fill="rgb(116,116,190)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >us..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_get_tag (3,665 ms, 7.64%)</title><rect x="10.1" y="113" width="67.2" height="15.0" fill="rgb(105,105,225)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >blk_mq_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (3,665 ms, 7.64%)</title><rect x="10.1" y="49" width="67.2" height="15.0" fill="rgb(131,131,235)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__blk_mq_alloc_request (15 ms, 0.03%)</title><rect x="134.3" y="161" width="0.2" height="15.0" fill="rgb(136,136,230)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_trans_read_buf_map (328 ms, 0.68%)</title><rect x="134.5" y="289" width="6.1" height="15.0" fill="rgb(127,127,230)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bt_get.isra.6 (3,086 ms, 6.43%)</title><rect x="77.7" y="97" width="56.6" height="15.0" fill="rgb(83,83,202)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >bt_ge..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>submit_bio (3,086 ms, 6.43%)</title><rect x="77.7" y="193" width="56.6" height="15.0" fill="rgb(119,119,230)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >submi..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (3,086 ms, 6.43%)</title><rect x="77.7" y="49" width="56.6" height="15.0" fill="rgb(101,101,234)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sched..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>submit_bio (15 ms, 0.03%)</title><rect x="134.3" y="225" width="0.2" height="15.0" fill="rgb(130,130,238)" rx="2" ry="2" />
+<text text-anchor="" x="137.25" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (3,665 ms, 7.64%)</title><rect x="10.1" y="65" width="67.2" height="15.0" fill="rgb(138,138,217)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedul..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__writeback_inodes_wb (3,102 ms, 6.46%)</title><rect x="77.7" y="321" width="56.8" height="15.0" fill="rgb(126,126,222)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__writ..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__writeback_single_inode (3,684 ms, 7.67%)</title><rect x="10.1" y="289" width="67.6" height="15.0" fill="rgb(123,123,202)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__write..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_da3_node_lookup_int (16 ms, 0.03%)</title><rect x="143.1" y="209" width="0.3" height="15.0" fill="rgb(115,115,226)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bt_get.isra.6 (230 ms, 0.48%)</title><rect x="173.0" y="113" width="4.2" height="15.0" fill="rgb(95,95,217)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_add_to_ioend (3,086 ms, 6.43%)</title><rect x="77.7" y="209" width="56.6" height="15.0" fill="rgb(132,132,198)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xfs_a..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_log_force (43 ms, 0.09%)</title><rect x="889.2" y="369" width="0.8" height="15.0" fill="rgb(118,118,213)" rx="2" ry="2" />
+<text text-anchor="" x="892.20" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (43 ms, 0.09%)</title><rect x="889.2" y="321" width="0.8" height="15.0" fill="rgb(134,134,207)" rx="2" ry="2" />
+<text text-anchor="" x="892.20" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (328 ms, 0.68%)</title><rect x="134.5" y="161" width="6.1" height="15.0" fill="rgb(95,95,226)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bt_get.isra.6 (3,665 ms, 7.64%)</title><rect x="10.1" y="97" width="67.2" height="15.0" fill="rgb(99,99,193)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >bt_get...</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_xfs_buf_find (89 ms, 0.19%)</title><rect x="140.6" y="225" width="1.6" height="15.0" fill="rgb(126,126,207)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>submit_bio (19 ms, 0.04%)</title><rect x="77.3" y="225" width="0.4" height="15.0" fill="rgb(82,82,235)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_dir2_leaf_getdents (89 ms, 0.19%)</title><rect x="140.6" y="337" width="1.6" height="15.0" fill="rgb(88,88,217)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_vm_readpages (230 ms, 0.48%)</title><rect x="173.0" y="257" width="4.2" height="15.0" fill="rgb(96,96,244)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (1,610 ms, 3.35%)</title><rect x="143.5" y="129" width="29.5" height="15.0" fill="rgb(136,136,216)" rx="2" ry="2" />
+<text text-anchor="" x="146.45" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wa..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_lock (89 ms, 0.19%)</title><rect x="140.6" y="209" width="1.6" height="15.0" fill="rgb(137,137,195)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_trans_read_buf_map (89 ms, 0.19%)</title><rect x="140.6" y="273" width="1.6" height="15.0" fill="rgb(84,84,209)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_da_read_buf (49 ms, 0.10%)</title><rect x="142.2" y="177" width="0.9" height="15.0" fill="rgb(130,130,220)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_writepages (3,684 ms, 7.67%)</title><rect x="10.1" y="273" width="67.6" height="15.0" fill="rgb(80,80,241)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >do_writ..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>submit_bio (230 ms, 0.48%)</title><rect x="173.0" y="209" width="4.2" height="15.0" fill="rgb(132,132,209)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_vn_lookup (1,679 ms, 3.50%)</title><rect x="142.2" y="273" width="30.8" height="15.0" fill="rgb(135,135,207)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >xf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>vfs_fstatat (1,679 ms, 3.50%)</title><rect x="142.2" y="369" width="30.8" height="15.0" fill="rgb(118,118,191)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >vf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (49 ms, 0.10%)</title><rect x="142.2" y="49" width="0.9" height="15.0" fill="rgb(96,96,201)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/u16:3 (3,102 ms, 6.46%)</title><rect x="77.7" y="433" width="56.8" height="15.0" fill="rgb(101,101,212)" rx="2" ry="2" />
+<text text-anchor="" x="80.68" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kworke..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (3,665 ms, 7.64%)</title><rect x="10.1" y="81" width="67.2" height="15.0" fill="rgb(139,139,232)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io_sche..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (1,610 ms, 3.35%)</title><rect x="143.5" y="113" width="29.5" height="15.0" fill="rgb(95,95,225)" rx="2" ry="2" />
+<text text-anchor="" x="146.45" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_read_map (16 ms, 0.03%)</title><rect x="143.1" y="145" width="0.3" height="15.0" fill="rgb(80,80,192)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_da_read_buf (16 ms, 0.03%)</title><rect x="143.1" y="177" width="0.3" height="15.0" fill="rgb(119,119,236)" rx="2" ry="2" />
+<text text-anchor="" x="146.10" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_vm_readpages (29 ms, 0.06%)</title><rect x="177.2" y="257" width="0.5" height="15.0" fill="rgb(101,101,216)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (89 ms, 0.19%)</title><rect x="140.6" y="129" width="1.6" height="15.0" fill="rgb(125,125,216)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (89 ms, 0.19%)</title><rect x="140.6" y="145" width="1.6" height="15.0" fill="rgb(88,88,208)" rx="2" ry="2" />
+<text text-anchor="" x="143.56" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (49 ms, 0.10%)</title><rect x="142.2" y="97" width="0.9" height="15.0" fill="rgb(120,120,214)" rx="2" ry="2" />
+<text text-anchor="" x="145.20" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_get_map (328 ms, 0.68%)</title><rect x="134.5" y="257" width="6.1" height="15.0" fill="rgb(100,100,241)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (230 ms, 0.48%)</title><rect x="173.0" y="81" width="4.2" height="15.0" fill="rgb(108,108,207)" rx="2" ry="2" />
+<text text-anchor="" x="175.97" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (19 ms, 0.04%)</title><rect x="77.3" y="113" width="0.4" height="15.0" fill="rgb(136,136,241)" rx="2" ry="2" />
+<text text-anchor="" x="80.33" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__blk_mq_alloc_request (3,665 ms, 7.64%)</title><rect x="10.1" y="129" width="67.2" height="15.0" fill="rgb(81,81,208)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__blk_m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (45 ms, 0.09%)</title><rect x="889.2" y="417" width="0.8" height="15.0" fill="rgb(99,99,193)" rx="2" ry="2" />
+<text text-anchor="" x="892.18" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>xfs_buf_lock (328 ms, 0.68%)</title><rect x="134.5" y="225" width="6.1" height="15.0" fill="rgb(118,118,195)" rx="2" ry="2" />
+<text text-anchor="" x="137.54" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>all (48,002 ms, 100%)</title><rect x="10.0" y="449" width="880.0" height="15.0" fill="rgb(137,137,211)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_map_request (29 ms, 0.06%)</title><rect x="177.2" y="161" width="0.5" height="15.0" fill="rgb(86,86,227)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>blk_mq_get_tag (29 ms, 0.06%)</title><rect x="177.2" y="129" width="0.5" height="15.0" fill="rgb(106,106,219)" rx="2" ry="2" />
+<text text-anchor="" x="180.18" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (3,684 ms, 7.67%)</title><rect x="10.1" y="369" width="67.6" height="15.0" fill="rgb(136,136,211)" rx="2" ry="2" />
+<text text-anchor="" x="13.14" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >process..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (43 ms, 0.09%)</title><rect x="889.2" y="337" width="0.8" height="15.0" fill="rgb(133,133,223)" rx="2" ry="2" />
+<text text-anchor="" x="892.20" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+</svg>
