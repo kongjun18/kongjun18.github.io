@@ -1,0 +1,2087 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="800" height="370" onload="init(evt)" viewBox="0 0 800 370" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<defs >
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#f8f8f8" offset="5%" />
+		<stop stop-color="#e8e8e8" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	.func_g:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	var details, searchbtn, matchedtxt, svg;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	// mouse-over for info
+	function s(node) {		// show
+		info = g_to_text(node);
+		details.nodeValue = "Function: " + info;
+	}
+	function c() {			// clear
+		details.nodeValue = ' ';
+	}
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	})
+
+	// functions
+	function find_child(parent, name, attr) {
+		var children = parent.childNodes;
+		for (var i=0; i<children.length;i++) {
+			if (children[i].tagName == name)
+				return (attr != undefined) ? children[i].attributes[attr].value : children[i];
+		}
+		return;
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_"+attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_"+attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_"+attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes["width"].value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes["x"].value = parseFloat(r.attributes["x"].value) +3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2*12*0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x=txt.length-2; x>0; x--) {
+			if (t.getSubStringLength(0, x+2) <= w) {
+				t.textContent = txt.substring(0,x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = (parseFloat(e.attributes["x"].value) - x - 10) * ratio + 10;
+				if(e.tagName == "text") e.attributes["x"].value = find_child(e.parentNode, "rect", "x") + 3;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseFloat(e.attributes["width"].value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_child(c[i], x-10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = 10;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseInt(svg.width.baseVal.value) - (10*2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr["width"].value);
+		var xmin = parseFloat(attr["x"].value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr["y"].value);
+		var ratio = (svg.width.baseVal.value - 2*10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "1.0";
+
+		var el = document.getElementsByTagName("g");
+		for(var i=0;i<el.length;i++){
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a["x"].value);
+			var ew = parseFloat(a["width"].value);
+			// Is it an ancestor
+			if (0 == 0) {
+				var upstack = parseFloat(a["y"].value) > ymin;
+			} else {
+				var upstack = parseFloat(a["y"].value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.style["opacity"] = "0.5";
+					zoom_parent(e);
+					e.onclick = function(e){unzoom(); zoom(this);};
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.style["display"] = "none";
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.style["display"] = "none";
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					e.onclick = function(e){zoom(this);};
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "0.0";
+
+		var el = document.getElementsByTagName("g");
+		for(i=0;i<el.length;i++) {
+			el[i].style["display"] = "block";
+			el[i].style["opacity"] = "1";
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.getElementsByTagName("rect");
+		for (var i=0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.style["opacity"] = "0.1";
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.style["opacity"] = "0.0";
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementsByTagName("g");
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			if (e.attributes["class"].value != "func_g")
+				continue;
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (rect == null) {
+				// the rect might be wrapped in an anchor
+				// if nameattr href is being used
+				if (rect = find_child(e, "a")) {
+				    rect = find_child(r, "rect");
+				}
+			}
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes["width"].value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes["x"].value);
+				orig_save(rect, "fill");
+				rect.attributes["fill"].value =
+				    "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.style["opacity"] = "1.0";
+		searchbtn.firstChild.nodeValue = "Reset Search"
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+				return a - b;
+			if (a < b || a > b)
+				return a - b;
+			return matches[b] - matches[a];
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.style["opacity"] = "1.0";
+		pct = 100 * count / maxwidth;
+		if (pct == 100)
+			pct = "100"
+		else
+			pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+	function searchover(e) {
+		searchbtn.style["opacity"] = "1.0";
+	}
+	function searchout(e) {
+		if (searching) {
+			searchbtn.style["opacity"] = "1.0";
+		} else {
+			searchbtn.style["opacity"] = "0.1";
+		}
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="800.0" height="370.0" fill="url(#background)"  />
+<text text-anchor="middle" x="400.00" y="24" font-size="17" font-family="Verdana" fill="rgb(0,0,0)"  >Kernel Uninterruptible Off-CPU Flame Graph (60 secs)</text>
+<text text-anchor="" x="10.00" y="353" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="details" > </text>
+<text text-anchor="" x="10.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="unzoom" onclick="unzoom()" style="opacity:0.0;cursor:pointer" >Reset Zoom</text>
+<text text-anchor="" x="690.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="search" onmouseover="searchover()" onmouseout="searchout()" onclick="search_prompt()" style="opacity:0.1;cursor:pointer" >Search</text>
+<text text-anchor="" x="690.00" y="353" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="matched" > </text>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_write_and_wait_marked_extents.constprop.27 (7 ms, 0.76%)</title><rect x="27.2" y="225" width="6.1" height="15.0" fill="rgb(118,118,224)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>entry_SYSCALL_64_fastpath (0 ms, 0.00%)</title><rect x="683.8" y="289" width="0.1" height="15.0" fill="rgb(86,86,241)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mutex_lock (115 ms, 12.42%)</title><rect x="683.9" y="177" width="96.8" height="15.0" fill="rgb(94,94,204)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mutex_lock</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (0 ms, 0.00%)</title><rect x="437.5" y="177" width="0.2" height="15.0" fill="rgb(116,116,209)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (27 ms, 2.92%)</title><rect x="95.4" y="113" width="23.0" height="15.0" fill="rgb(96,96,194)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >s..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_on_page_bit (13 ms, 1.40%)</title><rect x="33.4" y="129" width="11.0" height="15.0" fill="rgb(123,123,195)" rx="2" ry="2" />
+<text text-anchor="" x="36.41" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_read (115 ms, 12.42%)</title><rect x="683.9" y="273" width="96.8" height="15.0" fill="rgb(129,129,233)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sys_read</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="785.5" y="193" width="0.3" height="15.0" fill="rgb(131,131,241)" rx="2" ry="2" />
+<text text-anchor="" x="788.47" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bit_wait_io (13 ms, 1.40%)</title><rect x="33.4" y="97" width="11.0" height="15.0" fill="rgb(119,119,208)" rx="2" ry="2" />
+<text text-anchor="" x="36.41" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (40 ms, 4.32%)</title><rect x="479.3" y="129" width="33.4" height="15.0" fill="rgb(115,115,200)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wa..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bit_wait_io (49 ms, 5.29%)</title><rect x="53.6" y="177" width="41.7" height="15.0" fill="rgb(102,102,222)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >bit..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper (0 ms, 0.00%)</title><rect x="603.1" y="209" width="0.3" height="15.0" fill="rgb(102,102,213)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_write_dirty_block_groups (13 ms, 1.40%)</title><rect x="33.3" y="209" width="11.1" height="15.0" fill="rgb(83,83,224)" rx="2" ry="2" />
+<text text-anchor="" x="36.34" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__mutex_lock_slowpath (50 ms, 5.40%)</title><rect x="276.1" y="193" width="42.3" height="15.0" fill="rgb(91,91,195)" rx="2" ry="2" />
+<text text-anchor="" x="279.15" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_wait_cache_io (7 ms, 0.76%)</title><rect x="21.4" y="209" width="5.8" height="15.0" fill="rgb(88,88,215)" rx="2" ry="2" />
+<text text-anchor="" x="24.44" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_read (3 ms, 0.32%)</title><rect x="781.7" y="241" width="2.4" height="15.0" fill="rgb(107,107,211)" rx="2" ry="2" />
+<text text-anchor="" x="784.73" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (13 ms, 1.40%)</title><rect x="33.4" y="49" width="11.0" height="15.0" fill="rgb(133,133,243)" rx="2" ry="2" />
+<text text-anchor="" x="36.41" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_munmap (0 ms, 0.00%)</title><rect x="781.3" y="273" width="0.4" height="15.0" fill="rgb(95,95,214)" rx="2" ry="2" />
+<text text-anchor="" x="784.31" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_preempt_disabled (50 ms, 5.40%)</title><rect x="276.1" y="177" width="42.3" height="15.0" fill="rgb(91,91,196)" rx="2" ry="2" />
+<text text-anchor="" x="279.15" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>vfs_fsync_range (2 ms, 0.22%)</title><rect x="45.9" y="241" width="1.3" height="15.0" fill="rgb(122,122,244)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (0 ms, 0.00%)</title><rect x="603.1" y="241" width="0.3" height="15.0" fill="rgb(88,88,216)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (90 ms, 9.72%)</title><rect x="276.0" y="289" width="75.7" height="15.0" fill="rgb(88,88,220)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret_from..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="20.4" y="177" width="0.2" height="15.0" fill="rgb(105,105,195)" rx="2" ry="2" />
+<text text-anchor="" x="23.44" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mem_cgroup_css_offline (40 ms, 4.32%)</title><rect x="318.4" y="209" width="33.3" height="15.0" fill="rgb(87,87,213)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >me..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (49 ms, 5.29%)</title><rect x="53.6" y="289" width="41.7" height="15.0" fill="rgb(126,126,197)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (90 ms, 9.72%)</title><rect x="276.0" y="241" width="75.7" height="15.0" fill="rgb(128,128,224)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >process_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="603.4" y="145" width="0.1" height="15.0" fill="rgb(116,116,240)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_read_failed (1 ms, 0.11%)</title><rect x="47.5" y="225" width="1.1" height="15.0" fill="rgb(110,110,230)" rx="2" ry="2" />
+<text text-anchor="" x="50.47" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_destroy_kmem_caches (40 ms, 4.32%)</title><rect x="479.3" y="193" width="33.4" height="15.0" fill="rgb(130,130,195)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >me..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>vm_mmap_pgoff (1 ms, 0.11%)</title><rect x="780.7" y="241" width="0.5" height="15.0" fill="rgb(94,94,214)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="603.1" y="145" width="0.3" height="15.0" fill="rgb(96,96,225)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_offline_kmem.part.38 (107 ms, 11.55%)</title><rect x="512.8" y="193" width="90.3" height="15.0" fill="rgb(80,80,215)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >memcg_offl..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>synchronize_sched (95 ms, 10.26%)</title><rect x="603.5" y="161" width="80.2" height="15.0" fill="rgb(122,122,203)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >synchroni..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_read_failed (1 ms, 0.11%)</title><rect x="20.6" y="225" width="0.8" height="15.0" fill="rgb(126,126,218)" rx="2" ry="2" />
+<text text-anchor="" x="23.61" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>flush_workqueue (0 ms, 0.00%)</title><rect x="603.4" y="209" width="0.1" height="15.0" fill="rgb(82,82,225)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (48 ms, 5.18%)</title><rect x="131.7" y="65" width="40.1" height="15.0" fill="rgb(120,120,191)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fin..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_on_page_bit (12 ms, 1.30%)</title><rect x="10.0" y="161" width="10.2" height="15.0" fill="rgb(91,91,193)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>docker (0 ms, 0.00%)</title><rect x="45.7" y="305" width="0.2" height="15.0" fill="rgb(84,84,242)" rx="2" ry="2" />
+<text text-anchor="" x="48.74" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/12:1 (108 ms, 11.66%)</title><rect x="118.4" y="305" width="90.8" height="15.0" fill="rgb(126,126,193)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kworker/12:1</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_preempt_disabled (115 ms, 12.42%)</title><rect x="683.9" y="145" width="96.8" height="15.0" fill="rgb(102,102,215)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule_pr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_fdatasync (12 ms, 1.30%)</title><rect x="10.0" y="273" width="10.2" height="15.0" fill="rgb(110,110,243)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bit_wait_io (12 ms, 1.30%)</title><rect x="10.0" y="129" width="10.2" height="15.0" fill="rgb(107,107,193)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (27 ms, 2.92%)</title><rect x="95.4" y="129" width="23.0" height="15.0" fill="rgb(113,113,239)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >w..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="20.4" y="193" width="0.2" height="15.0" fill="rgb(105,105,210)" rx="2" ry="2" />
+<text text-anchor="" x="23.44" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_vfork (5 ms, 0.54%)</title><rect x="49.1" y="257" width="4.5" height="15.0" fill="rgb(129,129,192)" rx="2" ry="2" />
+<text text-anchor="" x="52.15" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="20.4" y="209" width="0.2" height="15.0" fill="rgb(80,80,202)" rx="2" ry="2" />
+<text text-anchor="" x="23.44" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_read_failed (1 ms, 0.11%)</title><rect x="20.6" y="209" width="0.8" height="15.0" fill="rgb(139,139,203)" rx="2" ry="2" />
+<text text-anchor="" x="23.61" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (1 ms, 0.11%)</title><rect x="784.1" y="161" width="0.8" height="15.0" fill="rgb(103,103,232)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (0 ms, 0.00%)</title><rect x="603.1" y="177" width="0.3" height="15.0" fill="rgb(87,87,232)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="683.8" y="161" width="0.1" height="15.0" fill="rgb(132,132,205)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (50 ms, 5.40%)</title><rect x="276.1" y="145" width="42.3" height="15.0" fill="rgb(95,95,211)" rx="2" ry="2" />
+<text text-anchor="" x="279.15" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fin..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_write_failed_killable (1 ms, 0.11%)</title><rect x="48.6" y="193" width="0.5" height="15.0" fill="rgb(87,87,228)" rx="2" ry="2" />
+<text text-anchor="" x="51.55" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (1 ms, 0.11%)</title><rect x="780.7" y="161" width="0.5" height="15.0" fill="rgb(117,117,206)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (7 ms, 0.76%)</title><rect x="27.2" y="81" width="6.1" height="15.0" fill="rgb(90,90,190)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_free_work_fn (0 ms, 0.00%)</title><rect x="603.4" y="225" width="0.1" height="15.0" fill="rgb(121,121,222)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="20.2" y="193" width="0.2" height="15.0" fill="rgb(102,102,195)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (95 ms, 10.26%)</title><rect x="603.5" y="81" width="80.2" height="15.0" fill="rgb(83,83,228)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >finish_ta..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>filemap_fdatawait_range (13 ms, 1.40%)</title><rect x="33.4" y="161" width="11.0" height="15.0" fill="rgb(111,111,217)" rx="2" ry="2" />
+<text text-anchor="" x="36.41" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_write_killable (0 ms, 0.00%)</title><rect x="781.3" y="257" width="0.4" height="15.0" fill="rgb(87,87,241)" rx="2" ry="2" />
+<text text-anchor="" x="784.31" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (1 ms, 0.11%)</title><rect x="20.6" y="193" width="0.8" height="15.0" fill="rgb(90,90,215)" rx="2" ry="2" />
+<text text-anchor="" x="23.61" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (49 ms, 5.29%)</title><rect x="53.6" y="113" width="41.7" height="15.0" fill="rgb(116,116,240)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fin..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_write_killable (1 ms, 0.11%)</title><rect x="784.9" y="241" width="0.6" height="15.0" fill="rgb(84,84,226)" rx="2" ry="2" />
+<text text-anchor="" x="787.91" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_write_failed_killable (1 ms, 0.11%)</title><rect x="784.9" y="225" width="0.6" height="15.0" fill="rgb(127,127,202)" rx="2" ry="2" />
+<text text-anchor="" x="787.91" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (107 ms, 11.55%)</title><rect x="512.8" y="289" width="90.3" height="15.0" fill="rgb(98,98,224)" rx="2" ry="2" />
+<text text-anchor="" x="515.76" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret_from_f..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_killed_work_fn (27 ms, 2.92%)</title><rect x="95.4" y="225" width="23.0" height="15.0" fill="rgb(92,92,223)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >c..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>entry_SYSCALL_64_fastpath (2 ms, 0.22%)</title><rect x="784.1" y="289" width="1.7" height="15.0" fill="rgb(122,122,234)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mem_cgroup_css_offline (95 ms, 10.26%)</title><rect x="603.5" y="209" width="80.2" height="15.0" fill="rgb(136,136,214)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mem_cgrou..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper (0 ms, 0.00%)</title><rect x="118.4" y="209" width="0.2" height="15.0" fill="rgb(117,117,239)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_fsync (2 ms, 0.22%)</title><rect x="45.9" y="273" width="1.3" height="15.0" fill="rgb(89,89,244)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_buffer (1 ms, 0.11%)</title><rect x="46.7" y="177" width="0.5" height="15.0" fill="rgb(99,99,216)" rx="2" ry="2" />
+<text text-anchor="" x="49.66" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rcu_barrier (52 ms, 5.61%)</title><rect x="351.7" y="161" width="43.6" height="15.0" fill="rgb(98,98,224)" rx="2" ry="2" />
+<text text-anchor="" x="354.73" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >rcu_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (27 ms, 2.92%)</title><rect x="95.3" y="289" width="23.1" height="15.0" fill="rgb(100,100,242)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >r..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (0 ms, 0.00%)</title><rect x="276.0" y="177" width="0.1" height="15.0" fill="rgb(94,94,211)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>proc_cgroup_show (115 ms, 12.42%)</title><rect x="683.9" y="193" width="96.8" height="15.0" fill="rgb(137,137,191)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >proc_cgroup..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_write_failed_killable (1 ms, 0.11%)</title><rect x="784.1" y="209" width="0.8" height="15.0" fill="rgb(132,132,216)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mutex_lock (48 ms, 5.18%)</title><rect x="131.7" y="129" width="40.1" height="15.0" fill="rgb(86,86,214)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mut..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (108 ms, 11.66%)</title><rect x="118.4" y="241" width="90.8" height="15.0" fill="rgb(98,98,227)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >process_on..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (27 ms, 2.92%)</title><rect x="95.3" y="257" width="23.1" height="15.0" fill="rgb(129,129,190)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >w..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/3:0 (102 ms, 11.01%)</title><rect x="351.7" y="305" width="85.8" height="15.0" fill="rgb(110,110,211)" rx="2" ry="2" />
+<text text-anchor="" x="354.71" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kworker/3:0</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_preempt_disabled (16 ms, 1.73%)</title><rect x="118.6" y="177" width="13.1" height="15.0" fill="rgb(101,101,242)" rx="2" ry="2" />
+<text text-anchor="" x="121.56" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (2 ms, 0.22%)</title><rect x="44.4" y="145" width="1.3" height="15.0" fill="rgb(107,107,218)" rx="2" ry="2" />
+<text text-anchor="" x="47.43" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_read_failed (0 ms, 0.00%)</title><rect x="683.8" y="193" width="0.1" height="15.0" fill="rgb(105,105,226)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>release_caches (40 ms, 4.32%)</title><rect x="479.3" y="177" width="33.4" height="15.0" fill="rgb(96,96,223)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >re..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="47.2" y="193" width="0.3" height="15.0" fill="rgb(115,115,196)" rx="2" ry="2" />
+<text text-anchor="" x="50.20" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bit_wait_io (1 ms, 0.11%)</title><rect x="45.9" y="113" width="0.8" height="15.0" fill="rgb(113,113,233)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (2 ms, 0.22%)</title><rect x="44.4" y="113" width="1.3" height="15.0" fill="rgb(122,122,219)" rx="2" ry="2" />
+<text text-anchor="" x="47.43" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (107 ms, 11.55%)</title><rect x="512.8" y="257" width="90.3" height="15.0" fill="rgb(124,124,217)" rx="2" ry="2" />
+<text text-anchor="" x="515.76" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >worker_thr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="20.2" y="177" width="0.2" height="15.0" fill="rgb(89,89,199)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>page_fault (5 ms, 0.54%)</title><rect x="785.8" y="289" width="4.2" height="15.0" fill="rgb(99,99,227)" rx="2" ry="2" />
+<text text-anchor="" x="788.77" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_deactivate_kmem_caches (27 ms, 2.92%)</title><rect x="95.4" y="177" width="23.0" height="15.0" fill="rgb(80,80,225)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_write_killable (0 ms, 0.00%)</title><rect x="785.5" y="257" width="0.3" height="15.0" fill="rgb(116,116,226)" rx="2" ry="2" />
+<text text-anchor="" x="788.47" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (49 ms, 5.29%)</title><rect x="53.6" y="145" width="41.7" height="15.0" fill="rgb(95,95,208)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_rcu_barrier (48 ms, 5.18%)</title><rect x="131.7" y="145" width="40.1" height="15.0" fill="rgb(113,113,239)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_rc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/8:2 (95 ms, 10.26%)</title><rect x="603.4" y="305" width="80.3" height="15.0" fill="rgb(91,91,220)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kworker/8:2</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_mprotect_pkey (0 ms, 0.00%)</title><rect x="47.2" y="257" width="0.3" height="15.0" fill="rgb(109,109,227)" rx="2" ry="2" />
+<text text-anchor="" x="50.20" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>synchronize_sched (40 ms, 4.32%)</title><rect x="318.4" y="161" width="33.3" height="15.0" fill="rgb(97,97,210)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sy..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (1 ms, 0.11%)</title><rect x="45.9" y="49" width="0.8" height="15.0" fill="rgb(93,93,220)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="95.3" y="129" width="0.1" height="15.0" fill="rgb(100,100,200)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_read_failed (1 ms, 0.11%)</title><rect x="47.5" y="209" width="1.1" height="15.0" fill="rgb(83,83,230)" rx="2" ry="2" />
+<text text-anchor="" x="50.47" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (40 ms, 4.32%)</title><rect x="479.3" y="97" width="33.4" height="15.0" fill="rgb(97,97,223)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>dockerd (2 ms, 0.22%)</title><rect x="45.9" y="305" width="1.3" height="15.0" fill="rgb(114,114,219)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs-transacti (29 ms, 3.13%)</title><rect x="21.4" y="305" width="24.3" height="15.0" fill="rgb(91,91,242)" rx="2" ry="2" />
+<text text-anchor="" x="24.44" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >b..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (89 ms, 9.61%)</title><rect x="437.5" y="273" width="75.2" height="15.0" fill="rgb(131,131,193)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kthread</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bit_wait_io (7 ms, 0.76%)</title><rect x="27.2" y="129" width="6.1" height="15.0" fill="rgb(87,87,224)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="118.4" y="145" width="0.2" height="15.0" fill="rgb(106,106,227)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (102 ms, 11.01%)</title><rect x="351.7" y="241" width="85.8" height="15.0" fill="rgb(91,91,236)" rx="2" ry="2" />
+<text text-anchor="" x="354.71" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >process_on..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (108 ms, 11.66%)</title><rect x="118.4" y="273" width="90.8" height="15.0" fill="rgb(114,114,204)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kthread</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>filemap_fdatawait_range (7 ms, 0.76%)</title><rect x="27.2" y="193" width="6.1" height="15.0" fill="rgb(119,119,231)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (52 ms, 5.61%)</title><rect x="351.7" y="81" width="43.6" height="15.0" fill="rgb(135,135,233)" rx="2" ry="2" />
+<text text-anchor="" x="354.73" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fini..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_munmap (0 ms, 0.00%)</title><rect x="785.5" y="273" width="0.3" height="15.0" fill="rgb(88,88,218)" rx="2" ry="2" />
+<text text-anchor="" x="788.47" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_page_fault (1 ms, 0.11%)</title><rect x="20.6" y="273" width="0.8" height="15.0" fill="rgb(82,82,208)" rx="2" ry="2" />
+<text text-anchor="" x="23.61" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>jbd2/xvda-8 (49 ms, 5.29%)</title><rect x="53.6" y="305" width="41.7" height="15.0" fill="rgb(104,104,205)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jbd..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_fsync (2 ms, 0.22%)</title><rect x="45.9" y="257" width="1.3" height="15.0" fill="rgb(88,88,224)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>systemd (115 ms, 12.42%)</title><rect x="683.9" y="305" width="96.8" height="15.0" fill="rgb(139,139,218)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >systemd</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="95.3" y="145" width="0.1" height="15.0" fill="rgb(93,93,211)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_on_page_bit (7 ms, 0.76%)</title><rect x="21.5" y="145" width="5.7" height="15.0" fill="rgb(98,98,221)" rx="2" ry="2" />
+<text text-anchor="" x="24.50" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_select (0 ms, 0.00%)</title><rect x="683.8" y="273" width="0.1" height="15.0" fill="rgb(82,82,243)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SyS_mmap (1 ms, 0.11%)</title><rect x="784.1" y="273" width="0.8" height="15.0" fill="rgb(107,107,215)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_killed_work_fn (107 ms, 11.55%)</title><rect x="512.8" y="225" width="90.3" height="15.0" fill="rgb(91,91,205)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >css_killed..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (49 ms, 5.29%)</title><rect x="437.7" y="145" width="41.6" height="15.0" fill="rgb(120,120,220)" rx="2" ry="2" />
+<text text-anchor="" x="440.69" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fin..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (13 ms, 1.40%)</title><rect x="33.4" y="65" width="11.0" height="15.0" fill="rgb(102,102,209)" rx="2" ry="2" />
+<text text-anchor="" x="36.41" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SyS_mmap_pgoff (1 ms, 0.11%)</title><rect x="784.1" y="257" width="0.8" height="15.0" fill="rgb(80,80,232)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (49 ms, 5.29%)</title><rect x="53.6" y="273" width="41.7" height="15.0" fill="rgb(82,82,241)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kth..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper (0 ms, 0.00%)</title><rect x="437.5" y="209" width="0.2" height="15.0" fill="rgb(95,95,241)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>vm_mmap_pgoff (0 ms, 0.00%)</title><rect x="20.2" y="241" width="0.2" height="15.0" fill="rgb(88,88,231)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mem_cgroup_css_offline (107 ms, 11.55%)</title><rect x="512.8" y="209" width="90.3" height="15.0" fill="rgb(135,135,242)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mem_cgroup..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_page_fault (3 ms, 0.32%)</title><rect x="781.7" y="273" width="2.4" height="15.0" fill="rgb(90,90,215)" rx="2" ry="2" />
+<text text-anchor="" x="784.73" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (29 ms, 3.13%)</title><rect x="21.4" y="289" width="24.3" height="15.0" fill="rgb(131,131,228)" rx="2" ry="2" />
+<text text-anchor="" x="24.44" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >r..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (95 ms, 10.26%)</title><rect x="603.4" y="241" width="80.3" height="15.0" fill="rgb(90,90,241)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >process_o..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_page_fault (1 ms, 0.11%)</title><rect x="47.5" y="273" width="1.1" height="15.0" fill="rgb(90,90,229)" rx="2" ry="2" />
+<text text-anchor="" x="50.47" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_rcu_gp (27 ms, 2.92%)</title><rect x="95.4" y="145" width="23.0" height="15.0" fill="rgb(91,91,239)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (107 ms, 11.55%)</title><rect x="512.8" y="241" width="90.3" height="15.0" fill="rgb(89,89,201)" rx="2" ry="2" />
+<text text-anchor="" x="515.76" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >process_on..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (0 ms, 0.00%)</title><rect x="603.1" y="257" width="0.3" height="15.0" fill="rgb(110,110,235)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SyS_mmap_pgoff (0 ms, 0.00%)</title><rect x="20.2" y="257" width="0.2" height="15.0" fill="rgb(100,100,193)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_deactivate_kmem_caches (107 ms, 11.55%)</title><rect x="512.8" y="177" width="90.3" height="15.0" fill="rgb(83,83,229)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >memcg_deac..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/4:0 (89 ms, 9.61%)</title><rect x="437.5" y="305" width="75.2" height="15.0" fill="rgb(134,134,240)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kworker/..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (1 ms, 0.11%)</title><rect x="46.7" y="97" width="0.5" height="15.0" fill="rgb(126,126,201)" rx="2" ry="2" />
+<text text-anchor="" x="49.66" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (1 ms, 0.11%)</title><rect x="47.5" y="193" width="1.1" height="15.0" fill="rgb(96,96,240)" rx="2" ry="2" />
+<text text-anchor="" x="50.47" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper_exec (0 ms, 0.00%)</title><rect x="95.3" y="193" width="0.1" height="15.0" fill="rgb(116,116,196)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_bit (7 ms, 0.76%)</title><rect x="27.2" y="145" width="6.1" height="15.0" fill="rgb(88,88,212)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__mutex_lock_slowpath (48 ms, 5.18%)</title><rect x="131.7" y="113" width="40.1" height="15.0" fill="rgb(95,95,224)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper (0 ms, 0.00%)</title><rect x="276.0" y="209" width="0.1" height="15.0" fill="rgb(86,86,227)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (7 ms, 0.76%)</title><rect x="27.2" y="97" width="6.1" height="15.0" fill="rgb(85,85,237)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (52 ms, 5.61%)</title><rect x="351.7" y="129" width="43.6" height="15.0" fill="rgb(108,108,210)" rx="2" ry="2" />
+<text text-anchor="" x="354.73" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wait..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_rcu_gp (40 ms, 4.32%)</title><rect x="318.4" y="145" width="33.3" height="15.0" fill="rgb(131,131,191)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (115 ms, 12.42%)</title><rect x="683.9" y="113" width="96.8" height="15.0" fill="rgb(83,83,231)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >finish_task..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (40 ms, 4.32%)</title><rect x="479.3" y="81" width="33.4" height="15.0" fill="rgb(101,101,202)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fi..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (12 ms, 1.30%)</title><rect x="10.0" y="97" width="10.2" height="15.0" fill="rgb(138,138,236)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_write_killable (1 ms, 0.11%)</title><rect x="784.1" y="225" width="0.8" height="15.0" fill="rgb(119,119,198)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_bit (49 ms, 5.29%)</title><rect x="53.6" y="193" width="41.7" height="15.0" fill="rgb(94,94,207)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__w..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_write_failed_killable (1 ms, 0.11%)</title><rect x="780.7" y="209" width="0.5" height="15.0" fill="rgb(130,130,196)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_release_work_fn (50 ms, 5.40%)</title><rect x="395.3" y="225" width="42.2" height="15.0" fill="rgb(119,119,227)" rx="2" ry="2" />
+<text text-anchor="" x="398.30" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >css..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (0 ms, 0.00%)</title><rect x="276.0" y="161" width="0.1" height="15.0" fill="rgb(98,98,201)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_do_fork (5 ms, 0.54%)</title><rect x="49.1" y="241" width="4.5" height="15.0" fill="rgb(118,118,224)" rx="2" ry="2" />
+<text text-anchor="" x="52.15" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__mutex_lock_slowpath (16 ms, 1.73%)</title><rect x="118.6" y="193" width="13.1" height="15.0" fill="rgb(106,106,238)" rx="2" ry="2" />
+<text text-anchor="" x="121.56" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_write_failed_killable (1 ms, 0.11%)</title><rect x="784.1" y="193" width="0.8" height="15.0" fill="rgb(134,134,237)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_buffer (2 ms, 0.22%)</title><rect x="44.4" y="209" width="1.3" height="15.0" fill="rgb(117,117,205)" rx="2" ry="2" />
+<text text-anchor="" x="47.43" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_write_killable (0 ms, 0.00%)</title><rect x="47.2" y="241" width="0.3" height="15.0" fill="rgb(138,138,205)" rx="2" ry="2" />
+<text text-anchor="" x="50.20" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (40 ms, 4.32%)</title><rect x="318.4" y="97" width="33.3" height="15.0" fill="rgb(84,84,197)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_destroy_kmem_caches (52 ms, 5.61%)</title><rect x="351.7" y="193" width="43.6" height="15.0" fill="rgb(106,106,219)" rx="2" ry="2" />
+<text text-anchor="" x="354.73" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >memc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_mprotect (1 ms, 0.11%)</title><rect x="784.9" y="273" width="0.6" height="15.0" fill="rgb(120,120,194)" rx="2" ry="2" />
+<text text-anchor="" x="787.91" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_write_failed_killable (1 ms, 0.11%)</title><rect x="48.6" y="209" width="0.5" height="15.0" fill="rgb(130,130,243)" rx="2" ry="2" />
+<text text-anchor="" x="51.55" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (89 ms, 9.61%)</title><rect x="437.5" y="257" width="75.2" height="15.0" fill="rgb(86,86,206)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >worker_t..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_free_work_fn (48 ms, 5.18%)</title><rect x="131.7" y="225" width="40.1" height="15.0" fill="rgb(94,94,212)" rx="2" ry="2" />
+<text text-anchor="" x="134.68" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >css..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (95 ms, 10.26%)</title><rect x="603.4" y="289" width="80.3" height="15.0" fill="rgb(120,120,211)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret_from_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>page_fault (0 ms, 0.00%)</title><rect x="683.8" y="257" width="0.1" height="15.0" fill="rgb(111,111,215)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (1 ms, 0.11%)</title><rect x="784.9" y="177" width="0.6" height="15.0" fill="rgb(123,123,208)" rx="2" ry="2" />
+<text text-anchor="" x="787.91" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (0 ms, 0.00%)</title><rect x="603.4" y="177" width="0.1" height="15.0" fill="rgb(104,104,192)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_read_failed (5 ms, 0.54%)</title><rect x="785.8" y="209" width="4.2" height="15.0" fill="rgb(138,138,225)" rx="2" ry="2" />
+<text text-anchor="" x="788.77" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (5 ms, 0.54%)</title><rect x="49.1" y="193" width="4.5" height="15.0" fill="rgb(119,119,238)" rx="2" ry="2" />
+<text text-anchor="" x="52.15" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__do_page_fault (3 ms, 0.32%)</title><rect x="781.7" y="257" width="2.4" height="15.0" fill="rgb(128,128,239)" rx="2" ry="2" />
+<text text-anchor="" x="784.73" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_killed_work_fn (95 ms, 10.26%)</title><rect x="603.5" y="225" width="80.2" height="15.0" fill="rgb(132,132,221)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >css_kille..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (50 ms, 5.40%)</title><rect x="395.3" y="145" width="42.2" height="15.0" fill="rgb(97,97,239)" rx="2" ry="2" />
+<text text-anchor="" x="398.30" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fin..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>commit_cowonly_roots (13 ms, 1.40%)</title><rect x="33.3" y="225" width="11.1" height="15.0" fill="rgb(125,125,218)" rx="2" ry="2" />
+<text text-anchor="" x="36.34" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_bit (12 ms, 1.30%)</title><rect x="10.0" y="145" width="10.2" height="15.0" fill="rgb(116,116,226)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (5 ms, 0.54%)</title><rect x="785.8" y="177" width="4.2" height="15.0" fill="rgb(134,134,218)" rx="2" ry="2" />
+<text text-anchor="" x="788.77" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_free_work_fn (79 ms, 8.53%)</title><rect x="209.2" y="225" width="66.8" height="15.0" fill="rgb(124,124,227)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >css_fre..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_sync_log (2 ms, 0.22%)</title><rect x="45.9" y="209" width="1.3" height="15.0" fill="rgb(131,131,219)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>upload-systemd- (7 ms, 0.76%)</title><rect x="784.1" y="305" width="5.9" height="15.0" fill="rgb(87,87,240)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__filemap_fdatawait_range (1 ms, 0.11%)</title><rect x="45.9" y="161" width="0.8" height="15.0" fill="rgb(83,83,199)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (44 ms, 4.75%)</title><rect x="171.8" y="145" width="37.4" height="15.0" fill="rgb(84,84,216)" rx="2" ry="2" />
+<text text-anchor="" x="174.76" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fin..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_rcu_barrier (79 ms, 8.53%)</title><rect x="209.2" y="145" width="66.8" height="15.0" fill="rgb(109,109,204)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_rcu_ba..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_rcu_gp (95 ms, 10.26%)</title><rect x="603.5" y="145" width="80.2" height="15.0" fill="rgb(98,98,238)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__wait_rc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (12 ms, 1.30%)</title><rect x="10.0" y="65" width="10.2" height="15.0" fill="rgb(117,117,208)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="603.1" y="129" width="0.3" height="15.0" fill="rgb(122,122,205)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_preempt_disabled (50 ms, 5.40%)</title><rect x="395.3" y="177" width="42.2" height="15.0" fill="rgb(112,112,192)" rx="2" ry="2" />
+<text text-anchor="" x="398.30" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (5 ms, 0.54%)</title><rect x="49.1" y="177" width="4.5" height="15.0" fill="rgb(96,96,204)" rx="2" ry="2" />
+<text text-anchor="" x="52.15" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (95 ms, 10.26%)</title><rect x="603.4" y="273" width="80.3" height="15.0" fill="rgb(82,82,198)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kthread</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>out_of_line_wait_on_bit (49 ms, 5.29%)</title><rect x="53.6" y="209" width="41.7" height="15.0" fill="rgb(87,87,217)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >out..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__filemap_fdatawait_range (13 ms, 1.40%)</title><rect x="33.4" y="145" width="11.0" height="15.0" fill="rgb(126,126,214)" rx="2" ry="2" />
+<text text-anchor="" x="36.41" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_write_failed_killable (1 ms, 0.11%)</title><rect x="784.9" y="209" width="0.6" height="15.0" fill="rgb(83,83,235)" rx="2" ry="2" />
+<text text-anchor="" x="787.91" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (102 ms, 11.01%)</title><rect x="351.7" y="257" width="85.8" height="15.0" fill="rgb(100,100,230)" rx="2" ry="2" />
+<text text-anchor="" x="354.71" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >worker_thr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_offline_kmem.part.38 (40 ms, 4.32%)</title><rect x="318.4" y="193" width="33.3" height="15.0" fill="rgb(102,102,237)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >me..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>systemd-watchdo (0 ms, 0.00%)</title><rect x="683.8" y="305" width="0.1" height="15.0" fill="rgb(135,135,228)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (0 ms, 0.00%)</title><rect x="437.5" y="161" width="0.2" height="15.0" fill="rgb(133,133,241)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__filemap_fdatawait_range (7 ms, 0.76%)</title><rect x="21.5" y="161" width="5.7" height="15.0" fill="rgb(126,126,205)" rx="2" ry="2" />
+<text text-anchor="" x="24.50" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>page_fault (1 ms, 0.11%)</title><rect x="47.5" y="289" width="1.1" height="15.0" fill="rgb(122,122,214)" rx="2" ry="2" />
+<text text-anchor="" x="50.47" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bit_wait_io (7 ms, 0.76%)</title><rect x="21.5" y="113" width="5.7" height="15.0" fill="rgb(135,135,231)" rx="2" ry="2" />
+<text text-anchor="" x="24.50" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_syscall_64 (6 ms, 0.65%)</title><rect x="48.6" y="273" width="5.0" height="15.0" fill="rgb(84,84,243)" rx="2" ry="2" />
+<text text-anchor="" x="51.55" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (1 ms, 0.11%)</title><rect x="45.9" y="65" width="0.8" height="15.0" fill="rgb(134,134,240)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_deactivate_kmem_caches (95 ms, 10.26%)</title><rect x="603.5" y="177" width="80.2" height="15.0" fill="rgb(139,139,239)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >memcg_dea..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (0 ms, 0.00%)</title><rect x="603.1" y="273" width="0.3" height="15.0" fill="rgb(107,107,235)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_preempt_disabled (48 ms, 5.18%)</title><rect x="131.7" y="97" width="40.1" height="15.0" fill="rgb(81,81,224)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_write_failed_killable (1 ms, 0.11%)</title><rect x="780.7" y="193" width="0.5" height="15.0" fill="rgb(92,92,236)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_killed_work_fn (40 ms, 4.32%)</title><rect x="318.4" y="225" width="33.3" height="15.0" fill="rgb(81,81,242)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cs..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__do_page_fault (0 ms, 0.00%)</title><rect x="683.8" y="225" width="0.1" height="15.0" fill="rgb(118,118,221)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_bit (13 ms, 1.40%)</title><rect x="33.4" y="113" width="11.0" height="15.0" fill="rgb(84,84,208)" rx="2" ry="2" />
+<text text-anchor="" x="36.41" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_bit (7 ms, 0.76%)</title><rect x="21.5" y="129" width="5.7" height="15.0" fill="rgb(85,85,199)" rx="2" ry="2" />
+<text text-anchor="" x="24.50" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="785.5" y="241" width="0.3" height="15.0" fill="rgb(137,137,226)" rx="2" ry="2" />
+<text text-anchor="" x="788.47" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (1 ms, 0.11%)</title><rect x="20.6" y="177" width="0.8" height="15.0" fill="rgb(93,93,199)" rx="2" ry="2" />
+<text text-anchor="" x="23.61" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (79 ms, 8.53%)</title><rect x="209.2" y="241" width="66.8" height="15.0" fill="rgb(127,127,234)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >process..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (79 ms, 8.53%)</title><rect x="209.2" y="81" width="66.8" height="15.0" fill="rgb(103,103,219)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >finish_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_rcu_gp (107 ms, 11.55%)</title><rect x="512.8" y="145" width="90.3" height="15.0" fill="rgb(137,137,218)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__wait_rcu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mutex_lock (44 ms, 4.75%)</title><rect x="171.8" y="209" width="37.4" height="15.0" fill="rgb(123,123,209)" rx="2" ry="2" />
+<text text-anchor="" x="174.76" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mut..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_mprotect_pkey (1 ms, 0.11%)</title><rect x="784.9" y="257" width="0.6" height="15.0" fill="rgb(108,108,199)" rx="2" ry="2" />
+<text text-anchor="" x="787.91" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (79 ms, 8.53%)</title><rect x="209.2" y="129" width="66.8" height="15.0" fill="rgb(97,97,219)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wait_fo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (2 ms, 0.22%)</title><rect x="44.4" y="97" width="1.3" height="15.0" fill="rgb(98,98,204)" rx="2" ry="2" />
+<text text-anchor="" x="47.43" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (1 ms, 0.11%)</title><rect x="780.7" y="177" width="0.5" height="15.0" fill="rgb(137,137,205)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (95 ms, 10.26%)</title><rect x="603.5" y="97" width="80.2" height="15.0" fill="rgb(94,94,191)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SyS_mmap_pgoff (1 ms, 0.11%)</title><rect x="780.7" y="257" width="0.5" height="15.0" fill="rgb(114,114,213)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_read_failed (3 ms, 0.32%)</title><rect x="781.7" y="225" width="2.4" height="15.0" fill="rgb(118,118,208)" rx="2" ry="2" />
+<text text-anchor="" x="784.73" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (95 ms, 10.26%)</title><rect x="603.5" y="113" width="80.2" height="15.0" fill="rgb(128,128,216)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_rcu_barrier (40 ms, 4.32%)</title><rect x="479.3" y="145" width="33.4" height="15.0" fill="rgb(114,114,194)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_r..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__do_page_fault (1 ms, 0.11%)</title><rect x="47.5" y="257" width="1.1" height="15.0" fill="rgb(126,126,191)" rx="2" ry="2" />
+<text text-anchor="" x="50.47" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cgroup_release_agent (50 ms, 5.40%)</title><rect x="437.5" y="225" width="41.8" height="15.0" fill="rgb(99,99,193)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cgr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__filemap_fdatawait_range (12 ms, 1.30%)</title><rect x="10.0" y="177" width="10.2" height="15.0" fill="rgb(96,96,230)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mem_cgroup_css_offline (27 ms, 2.92%)</title><rect x="95.4" y="209" width="23.0" height="15.0" fill="rgb(130,130,217)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (0 ms, 0.00%)</title><rect x="118.4" y="177" width="0.2" height="15.0" fill="rgb(104,104,234)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>jbd2_journal_commit_transaction (49 ms, 5.29%)</title><rect x="53.6" y="241" width="41.7" height="15.0" fill="rgb(103,103,206)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jbd..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>upload-mesos-me (4 ms, 0.43%)</title><rect x="780.7" y="305" width="3.4" height="15.0" fill="rgb(134,134,193)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_wait_marked_extents (7 ms, 0.76%)</title><rect x="27.2" y="209" width="6.1" height="15.0" fill="rgb(94,94,214)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>vm_mmap_pgoff (1 ms, 0.11%)</title><rect x="784.1" y="241" width="0.8" height="15.0" fill="rgb(109,109,236)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (79 ms, 8.53%)</title><rect x="209.2" y="113" width="66.8" height="15.0" fill="rgb(96,96,235)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedul..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (1 ms, 0.11%)</title><rect x="48.6" y="177" width="0.5" height="15.0" fill="rgb(127,127,233)" rx="2" ry="2" />
+<text text-anchor="" x="51.55" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_mprotect_pkey (0 ms, 0.00%)</title><rect x="20.4" y="257" width="0.2" height="15.0" fill="rgb(122,122,220)" rx="2" ry="2" />
+<text text-anchor="" x="23.44" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mem_cgroup_css_free (40 ms, 4.32%)</title><rect x="479.3" y="209" width="33.4" height="15.0" fill="rgb(130,130,207)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >me..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (102 ms, 11.01%)</title><rect x="351.7" y="273" width="85.8" height="15.0" fill="rgb(130,130,206)" rx="2" ry="2" />
+<text text-anchor="" x="354.71" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kthread</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (27 ms, 2.92%)</title><rect x="95.4" y="81" width="23.0" height="15.0" fill="rgb(102,102,236)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >f..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper_exec (0 ms, 0.00%)</title><rect x="118.4" y="193" width="0.2" height="15.0" fill="rgb(84,84,207)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="603.4" y="161" width="0.1" height="15.0" fill="rgb(93,93,204)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mutex_lock (49 ms, 5.29%)</title><rect x="437.7" y="209" width="41.6" height="15.0" fill="rgb(116,116,199)" rx="2" ry="2" />
+<text text-anchor="" x="440.69" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mut..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_destroy_kmem_caches (79 ms, 8.53%)</title><rect x="209.2" y="193" width="66.8" height="15.0" fill="rgb(114,114,244)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >memcg_d..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>transaction_kthread (29 ms, 3.13%)</title><rect x="21.4" y="257" width="24.3" height="15.0" fill="rgb(108,108,200)" rx="2" ry="2" />
+<text text-anchor="" x="24.44" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >t..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_wait_ordered_range (13 ms, 1.40%)</title><rect x="33.3" y="177" width="11.1" height="15.0" fill="rgb(85,85,213)" rx="2" ry="2" />
+<text text-anchor="" x="36.34" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="785.5" y="225" width="0.3" height="15.0" fill="rgb(102,102,219)" rx="2" ry="2" />
+<text text-anchor="" x="788.47" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (79 ms, 8.53%)</title><rect x="209.2" y="289" width="66.8" height="15.0" fill="rgb(82,82,212)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret_fro..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (108 ms, 11.66%)</title><rect x="118.4" y="289" width="90.8" height="15.0" fill="rgb(86,86,227)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret_from_f..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_free_work_fn (52 ms, 5.61%)</title><rect x="351.7" y="225" width="43.6" height="15.0" fill="rgb(133,133,190)" rx="2" ry="2" />
+<text text-anchor="" x="354.71" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >css_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cgroup_release_agent (50 ms, 5.40%)</title><rect x="276.0" y="225" width="42.4" height="15.0" fill="rgb(138,138,192)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cgr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (50 ms, 5.40%)</title><rect x="395.3" y="161" width="42.2" height="15.0" fill="rgb(107,107,213)" rx="2" ry="2" />
+<text text-anchor="" x="398.30" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/7:1 (0 ms, 0.00%)</title><rect x="603.1" y="305" width="0.3" height="15.0" fill="rgb(115,115,205)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="20.2" y="161" width="0.2" height="15.0" fill="rgb(119,119,233)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (40 ms, 4.32%)</title><rect x="318.4" y="113" width="33.3" height="15.0" fill="rgb(117,117,203)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_on_page_bit (7 ms, 0.76%)</title><rect x="27.2" y="161" width="6.1" height="15.0" fill="rgb(124,124,232)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (12 ms, 1.30%)</title><rect x="10.0" y="113" width="10.2" height="15.0" fill="rgb(119,119,211)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="781.3" y="241" width="0.4" height="15.0" fill="rgb(82,82,213)" rx="2" ry="2" />
+<text text-anchor="" x="784.31" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (40 ms, 4.32%)</title><rect x="318.4" y="81" width="33.3" height="15.0" fill="rgb(92,92,209)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fi..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (27 ms, 2.92%)</title><rect x="95.3" y="273" width="23.1" height="15.0" fill="rgb(84,84,234)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >k..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (7 ms, 0.76%)</title><rect x="21.5" y="97" width="5.7" height="15.0" fill="rgb(108,108,218)" rx="2" ry="2" />
+<text text-anchor="" x="24.50" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_release_work_fn (44 ms, 4.75%)</title><rect x="171.8" y="225" width="37.4" height="15.0" fill="rgb(83,83,240)" rx="2" ry="2" />
+<text text-anchor="" x="174.76" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >css..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>entry_SYSCALL_64_fastpath (115 ms, 12.42%)</title><rect x="683.9" y="289" width="96.8" height="15.0" fill="rgb(98,98,243)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >entry_SYSCA..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (90 ms, 9.72%)</title><rect x="276.0" y="257" width="75.7" height="15.0" fill="rgb(134,134,241)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >worker_t..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (5 ms, 0.54%)</title><rect x="785.8" y="193" width="4.2" height="15.0" fill="rgb(138,138,239)" rx="2" ry="2" />
+<text text-anchor="" x="788.77" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (79 ms, 8.53%)</title><rect x="209.2" y="273" width="66.8" height="15.0" fill="rgb(123,123,228)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kthread</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper_exec (0 ms, 0.00%)</title><rect x="276.0" y="193" width="0.1" height="15.0" fill="rgb(80,80,238)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (0 ms, 0.00%)</title><rect x="603.4" y="193" width="0.1" height="15.0" fill="rgb(88,88,238)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>filemap_fdatawait_range (12 ms, 1.30%)</title><rect x="10.0" y="193" width="10.2" height="15.0" fill="rgb(115,115,221)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>seq_read (115 ms, 12.42%)</title><rect x="683.9" y="225" width="96.8" height="15.0" fill="rgb(111,111,243)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >seq_read</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_page_fault (0 ms, 0.00%)</title><rect x="683.8" y="241" width="0.1" height="15.0" fill="rgb(90,90,234)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>entry_SYSCALL_64_fastpath (2 ms, 0.22%)</title><rect x="45.9" y="289" width="1.3" height="15.0" fill="rgb(120,120,241)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SyS_mmap (1 ms, 0.11%)</title><rect x="780.7" y="273" width="0.5" height="15.0" fill="rgb(125,125,212)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/0:1 (27 ms, 2.92%)</title><rect x="95.3" y="305" width="23.1" height="15.0" fill="rgb(95,95,224)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >k..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_read (1 ms, 0.11%)</title><rect x="47.5" y="241" width="1.1" height="15.0" fill="rgb(98,98,190)" rx="2" ry="2" />
+<text text-anchor="" x="50.47" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>entry_SYSCALL_64_fastpath (1 ms, 0.11%)</title><rect x="20.2" y="289" width="0.4" height="15.0" fill="rgb(114,114,237)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="781.3" y="193" width="0.4" height="15.0" fill="rgb(85,85,206)" rx="2" ry="2" />
+<text text-anchor="" x="784.31" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_write_killable (0 ms, 0.00%)</title><rect x="20.4" y="241" width="0.2" height="15.0" fill="rgb(134,134,236)" rx="2" ry="2" />
+<text text-anchor="" x="23.44" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>filemap_fdatawait_range (1 ms, 0.11%)</title><rect x="45.9" y="177" width="0.8" height="15.0" fill="rgb(112,112,190)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_sync_file (2 ms, 0.22%)</title><rect x="45.9" y="225" width="1.3" height="15.0" fill="rgb(126,126,233)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>out_of_line_wait_on_bit (2 ms, 0.22%)</title><rect x="44.4" y="193" width="1.3" height="15.0" fill="rgb(104,104,212)" rx="2" ry="2" />
+<text text-anchor="" x="47.43" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_read_failed (0 ms, 0.00%)</title><rect x="683.8" y="177" width="0.1" height="15.0" fill="rgb(116,116,233)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cgroup_release_agent (0 ms, 0.00%)</title><rect x="95.3" y="225" width="0.1" height="15.0" fill="rgb(82,82,243)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper (0 ms, 0.00%)</title><rect x="95.3" y="209" width="0.1" height="15.0" fill="rgb(117,117,198)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>release_caches (79 ms, 8.53%)</title><rect x="209.2" y="177" width="66.8" height="15.0" fill="rgb(129,129,213)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >release..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__mutex_lock_slowpath (115 ms, 12.42%)</title><rect x="683.9" y="161" width="96.8" height="15.0" fill="rgb(88,88,220)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__mutex_loc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SyS_mmap (0 ms, 0.00%)</title><rect x="20.2" y="273" width="0.2" height="15.0" fill="rgb(115,115,219)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (1 ms, 0.11%)</title><rect x="47.5" y="177" width="1.1" height="15.0" fill="rgb(126,126,242)" rx="2" ry="2" />
+<text text-anchor="" x="50.47" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mem_cgroup_css_free (52 ms, 5.61%)</title><rect x="351.7" y="209" width="43.6" height="15.0" fill="rgb(121,121,193)" rx="2" ry="2" />
+<text text-anchor="" x="354.73" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mem_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (50 ms, 5.40%)</title><rect x="276.1" y="161" width="42.3" height="15.0" fill="rgb(102,102,228)" rx="2" ry="2" />
+<text text-anchor="" x="279.15" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_mprotect (0 ms, 0.00%)</title><rect x="47.2" y="273" width="0.3" height="15.0" fill="rgb(91,91,229)" rx="2" ry="2" />
+<text text-anchor="" x="50.20" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mem_cgroup_css_free (48 ms, 5.18%)</title><rect x="131.7" y="209" width="40.1" height="15.0" fill="rgb(108,108,217)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mem..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>filemap_write_and_wait_range (12 ms, 1.30%)</title><rect x="10.0" y="209" width="10.2" height="15.0" fill="rgb(89,89,229)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="781.3" y="209" width="0.4" height="15.0" fill="rgb(91,91,207)" rx="2" ry="2" />
+<text text-anchor="" x="784.31" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mutex_lock (50 ms, 5.40%)</title><rect x="395.3" y="209" width="42.2" height="15.0" fill="rgb(101,101,232)" rx="2" ry="2" />
+<text text-anchor="" x="398.30" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mut..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_preempt_disabled (49 ms, 5.29%)</title><rect x="437.7" y="177" width="41.6" height="15.0" fill="rgb(136,136,190)" rx="2" ry="2" />
+<text text-anchor="" x="440.69" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (13 ms, 1.40%)</title><rect x="33.4" y="33" width="11.0" height="15.0" fill="rgb(126,126,194)" rx="2" ry="2" />
+<text text-anchor="" x="36.41" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (5 ms, 0.54%)</title><rect x="49.1" y="209" width="4.5" height="15.0" fill="rgb(104,104,232)" rx="2" ry="2" />
+<text text-anchor="" x="52.15" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (1 ms, 0.11%)</title><rect x="48.6" y="161" width="0.5" height="15.0" fill="rgb(126,126,217)" rx="2" ry="2" />
+<text text-anchor="" x="51.55" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (52 ms, 5.61%)</title><rect x="351.7" y="113" width="43.6" height="15.0" fill="rgb(122,122,217)" rx="2" ry="2" />
+<text text-anchor="" x="354.73" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sche..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cgroup_release_agent (0 ms, 0.00%)</title><rect x="603.1" y="225" width="0.3" height="15.0" fill="rgb(118,118,214)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (13 ms, 1.40%)</title><rect x="33.4" y="81" width="11.0" height="15.0" fill="rgb(101,101,233)" rx="2" ry="2" />
+<text text-anchor="" x="36.41" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (107 ms, 11.55%)</title><rect x="512.8" y="81" width="90.3" height="15.0" fill="rgb(80,80,212)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >finish_tas..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_write_killable (0 ms, 0.00%)</title><rect x="20.2" y="225" width="0.2" height="15.0" fill="rgb(101,101,231)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>release_caches (48 ms, 5.18%)</title><rect x="131.7" y="177" width="40.1" height="15.0" fill="rgb(117,117,203)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >rel..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (3 ms, 0.32%)</title><rect x="781.7" y="193" width="2.4" height="15.0" fill="rgb(83,83,198)" rx="2" ry="2" />
+<text text-anchor="" x="784.73" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_mprotect (1 ms, 0.11%)</title><rect x="48.6" y="257" width="0.5" height="15.0" fill="rgb(86,86,244)" rx="2" ry="2" />
+<text text-anchor="" x="51.55" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (49 ms, 5.29%)</title><rect x="53.6" y="161" width="41.7" height="15.0" fill="rgb(136,136,222)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (0 ms, 0.00%)</title><rect x="603.1" y="161" width="0.3" height="15.0" fill="rgb(105,105,224)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (0 ms, 0.00%)</title><rect x="95.3" y="177" width="0.1" height="15.0" fill="rgb(129,129,240)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (95 ms, 10.26%)</title><rect x="603.5" y="129" width="80.2" height="15.0" fill="rgb(88,88,230)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wait_for_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/1:0 (79 ms, 8.53%)</title><rect x="209.2" y="305" width="66.8" height="15.0" fill="rgb(90,90,226)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kworker..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_read_failed (5 ms, 0.54%)</title><rect x="785.8" y="225" width="4.2" height="15.0" fill="rgb(120,120,203)" rx="2" ry="2" />
+<text text-anchor="" x="788.77" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="683.8" y="145" width="0.1" height="15.0" fill="rgb(82,82,208)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>vfs_fsync_range (12 ms, 1.30%)</title><rect x="10.0" y="241" width="10.2" height="15.0" fill="rgb(80,80,223)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="781.3" y="225" width="0.4" height="15.0" fill="rgb(86,86,210)" rx="2" ry="2" />
+<text text-anchor="" x="784.31" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (16 ms, 1.73%)</title><rect x="118.6" y="145" width="13.1" height="15.0" fill="rgb(133,133,235)" rx="2" ry="2" />
+<text text-anchor="" x="121.56" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>filemap_fdatawait_range (7 ms, 0.76%)</title><rect x="21.5" y="177" width="5.7" height="15.0" fill="rgb(96,96,225)" rx="2" ry="2" />
+<text text-anchor="" x="24.50" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mem_cgroup_css_free (79 ms, 8.53%)</title><rect x="209.2" y="209" width="66.8" height="15.0" fill="rgb(105,105,225)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mem_cgr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>all (926 ms, 100%)</title><rect x="10.0" y="321" width="780.0" height="15.0" fill="rgb(111,111,204)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (2 ms, 0.22%)</title><rect x="44.4" y="129" width="1.3" height="15.0" fill="rgb(92,92,225)" rx="2" ry="2" />
+<text text-anchor="" x="47.43" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>page_fault (1 ms, 0.11%)</title><rect x="20.6" y="289" width="0.8" height="15.0" fill="rgb(136,136,194)" rx="2" ry="2" />
+<text text-anchor="" x="23.61" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ext4_sync_file (12 ms, 1.30%)</title><rect x="10.0" y="225" width="10.2" height="15.0" fill="rgb(121,121,208)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (7 ms, 0.76%)</title><rect x="21.5" y="65" width="5.7" height="15.0" fill="rgb(134,134,199)" rx="2" ry="2" />
+<text text-anchor="" x="24.50" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mutex_lock (50 ms, 5.40%)</title><rect x="276.1" y="209" width="42.3" height="15.0" fill="rgb(121,121,215)" rx="2" ry="2" />
+<text text-anchor="" x="279.15" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mut..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="437.5" y="129" width="0.2" height="15.0" fill="rgb(80,80,228)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_read_failed (3 ms, 0.32%)</title><rect x="781.7" y="209" width="2.4" height="15.0" fill="rgb(134,134,209)" rx="2" ry="2" />
+<text text-anchor="" x="784.73" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>vfs_read (115 ms, 12.42%)</title><rect x="683.9" y="257" width="96.8" height="15.0" fill="rgb(86,86,229)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >vfs_read</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_read (5 ms, 0.54%)</title><rect x="785.8" y="241" width="4.2" height="15.0" fill="rgb(85,85,230)" rx="2" ry="2" />
+<text text-anchor="" x="788.77" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rcu_barrier (79 ms, 8.53%)</title><rect x="209.2" y="161" width="66.8" height="15.0" fill="rgb(133,133,191)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >rcu_bar..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="785.5" y="209" width="0.3" height="15.0" fill="rgb(134,134,212)" rx="2" ry="2" />
+<text text-anchor="" x="788.47" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (107 ms, 11.55%)</title><rect x="512.8" y="113" width="90.3" height="15.0" fill="rgb(124,124,210)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule_t..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (107 ms, 11.55%)</title><rect x="512.8" y="129" width="90.3" height="15.0" fill="rgb(81,81,201)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wait_for_c..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>return_from_SYSCALL_64 (6 ms, 0.65%)</title><rect x="48.6" y="289" width="5.0" height="15.0" fill="rgb(103,103,199)" rx="2" ry="2" />
+<text text-anchor="" x="51.55" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__mutex_lock_slowpath (44 ms, 4.75%)</title><rect x="171.8" y="193" width="37.4" height="15.0" fill="rgb(117,117,204)" rx="2" ry="2" />
+<text text-anchor="" x="174.76" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion (40 ms, 4.32%)</title><rect x="318.4" y="129" width="33.3" height="15.0" fill="rgb(116,116,208)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >wa..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (49 ms, 5.29%)</title><rect x="437.7" y="161" width="41.6" height="15.0" fill="rgb(97,97,211)" rx="2" ry="2" />
+<text text-anchor="" x="440.69" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (7 ms, 0.76%)</title><rect x="27.2" y="65" width="6.1" height="15.0" fill="rgb(116,116,203)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (1 ms, 0.11%)</title><rect x="784.1" y="177" width="0.8" height="15.0" fill="rgb(81,81,240)" rx="2" ry="2" />
+<text text-anchor="" x="787.09" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__mutex_lock_slowpath (50 ms, 5.40%)</title><rect x="395.3" y="193" width="42.2" height="15.0" fill="rgb(128,128,196)" rx="2" ry="2" />
+<text text-anchor="" x="398.30" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>page_fault (3 ms, 0.32%)</title><rect x="781.7" y="289" width="2.4" height="15.0" fill="rgb(93,93,235)" rx="2" ry="2" />
+<text text-anchor="" x="784.73" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>release_caches (52 ms, 5.61%)</title><rect x="351.7" y="177" width="43.6" height="15.0" fill="rgb(85,85,228)" rx="2" ry="2" />
+<text text-anchor="" x="354.73" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >rele..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bit_wait_io (1 ms, 0.11%)</title><rect x="46.7" y="129" width="0.5" height="15.0" fill="rgb(131,131,193)" rx="2" ry="2" />
+<text text-anchor="" x="49.66" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_fsync (12 ms, 1.30%)</title><rect x="10.0" y="257" width="10.2" height="15.0" fill="rgb(85,85,207)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (1 ms, 0.11%)</title><rect x="46.7" y="65" width="0.5" height="15.0" fill="rgb(129,129,216)" rx="2" ry="2" />
+<text text-anchor="" x="49.66" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_page_fault (5 ms, 0.54%)</title><rect x="785.8" y="273" width="4.2" height="15.0" fill="rgb(121,121,229)" rx="2" ry="2" />
+<text text-anchor="" x="788.77" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>synchronize_sched (27 ms, 2.92%)</title><rect x="95.4" y="161" width="23.0" height="15.0" fill="rgb(120,120,200)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >s..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>entry_SYSCALL_64_fastpath (0 ms, 0.00%)</title><rect x="47.2" y="289" width="0.3" height="15.0" fill="rgb(134,134,211)" rx="2" ry="2" />
+<text text-anchor="" x="50.20" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cgroup_release_agent (16 ms, 1.73%)</title><rect x="118.4" y="225" width="13.3" height="15.0" fill="rgb(134,134,216)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (95 ms, 10.26%)</title><rect x="603.4" y="257" width="80.3" height="15.0" fill="rgb(108,108,243)" rx="2" ry="2" />
+<text text-anchor="" x="606.42" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >worker_th..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (16 ms, 1.73%)</title><rect x="118.6" y="161" width="13.1" height="15.0" fill="rgb(110,110,235)" rx="2" ry="2" />
+<text text-anchor="" x="121.56" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_for_completion_killable (5 ms, 0.54%)</title><rect x="49.1" y="225" width="4.5" height="15.0" fill="rgb(100,100,233)" rx="2" ry="2" />
+<text text-anchor="" x="52.15" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (12 ms, 1.30%)</title><rect x="10.0" y="81" width="10.2" height="15.0" fill="rgb(102,102,240)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_wait_marked_extents (1 ms, 0.11%)</title><rect x="45.9" y="193" width="0.8" height="15.0" fill="rgb(111,111,197)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (115 ms, 12.42%)</title><rect x="683.9" y="129" width="96.8" height="15.0" fill="rgb(122,122,235)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/6:2 (107 ms, 11.55%)</title><rect x="512.8" y="305" width="90.3" height="15.0" fill="rgb(133,133,194)" rx="2" ry="2" />
+<text text-anchor="" x="515.76" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kworker/6:2</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (27 ms, 2.92%)</title><rect x="95.4" y="97" width="23.0" height="15.0" fill="rgb(120,120,228)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >s..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rcu_barrier (40 ms, 4.32%)</title><rect x="479.3" y="161" width="33.4" height="15.0" fill="rgb(132,132,192)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >rc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>synchronize_sched (107 ms, 11.55%)</title><rect x="512.8" y="161" width="90.3" height="15.0" fill="rgb(111,111,226)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >synchroniz..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_buffer (49 ms, 5.29%)</title><rect x="53.6" y="225" width="41.7" height="15.0" fill="rgb(119,119,190)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__w..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__do_page_fault (5 ms, 0.54%)</title><rect x="785.8" y="257" width="4.2" height="15.0" fill="rgb(137,137,215)" rx="2" ry="2" />
+<text text-anchor="" x="788.77" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_bit (1 ms, 0.11%)</title><rect x="46.7" y="145" width="0.5" height="15.0" fill="rgb(96,96,200)" rx="2" ry="2" />
+<text text-anchor="" x="49.66" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_rcu_barrier (52 ms, 5.61%)</title><rect x="351.7" y="145" width="43.6" height="15.0" fill="rgb(103,103,234)" rx="2" ry="2" />
+<text text-anchor="" x="354.73" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_rcu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (52 ms, 5.61%)</title><rect x="351.7" y="97" width="43.6" height="15.0" fill="rgb(134,134,226)" rx="2" ry="2" />
+<text text-anchor="" x="354.73" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sche..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="20.2" y="209" width="0.2" height="15.0" fill="rgb(116,116,223)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_offline_kmem.part.38 (27 ms, 2.92%)</title><rect x="95.4" y="193" width="23.0" height="15.0" fill="rgb(135,135,195)" rx="2" ry="2" />
+<text text-anchor="" x="98.40" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="276.0" y="129" width="0.1" height="15.0" fill="rgb(91,91,220)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (27 ms, 2.92%)</title><rect x="95.3" y="241" width="23.1" height="15.0" fill="rgb(109,109,206)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >p..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>out_of_line_wait_on_bit (1 ms, 0.11%)</title><rect x="46.7" y="161" width="0.5" height="15.0" fill="rgb(117,117,202)" rx="2" ry="2" />
+<text text-anchor="" x="49.66" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_offline_kmem.part.38 (95 ms, 10.26%)</title><rect x="603.5" y="193" width="80.2" height="15.0" fill="rgb(112,112,230)" rx="2" ry="2" />
+<text text-anchor="" x="606.54" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >memcg_off..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>mutex_lock (16 ms, 1.73%)</title><rect x="118.6" y="209" width="13.1" height="15.0" fill="rgb(134,134,217)" rx="2" ry="2" />
+<text text-anchor="" x="121.56" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="118.4" y="129" width="0.2" height="15.0" fill="rgb(97,97,216)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (0 ms, 0.00%)</title><rect x="118.4" y="161" width="0.2" height="15.0" fill="rgb(112,112,242)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>wait_on_page_bit (1 ms, 0.11%)</title><rect x="45.9" y="145" width="0.8" height="15.0" fill="rgb(109,109,223)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (1 ms, 0.11%)</title><rect x="784.9" y="193" width="0.6" height="15.0" fill="rgb(114,114,241)" rx="2" ry="2" />
+<text text-anchor="" x="787.91" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_commit_transaction (29 ms, 3.13%)</title><rect x="21.4" y="241" width="24.3" height="15.0" fill="rgb(132,132,242)" rx="2" ry="2" />
+<text text-anchor="" x="24.44" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >b..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>app-reaper (1 ms, 0.11%)</title><rect x="20.2" y="305" width="1.2" height="15.0" fill="rgb(92,92,227)" rx="2" ry="2" />
+<text text-anchor="" x="23.19" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="437.5" y="145" width="0.2" height="15.0" fill="rgb(103,103,216)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (1 ms, 0.11%)</title><rect x="45.9" y="81" width="0.8" height="15.0" fill="rgb(110,110,220)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java (8 ms, 0.86%)</title><rect x="47.2" y="305" width="6.4" height="15.0" fill="rgb(139,139,244)" rx="2" ry="2" />
+<text text-anchor="" x="50.20" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>css_free_work_fn (40 ms, 4.32%)</title><rect x="479.3" y="225" width="33.4" height="15.0" fill="rgb(89,89,212)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cs..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (29 ms, 3.13%)</title><rect x="21.4" y="273" width="24.3" height="15.0" fill="rgb(112,112,200)" rx="2" ry="2" />
+<text text-anchor="" x="24.44" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >k..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (7 ms, 0.76%)</title><rect x="21.5" y="81" width="5.7" height="15.0" fill="rgb(112,112,194)" rx="2" ry="2" />
+<text text-anchor="" x="24.50" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_read (1 ms, 0.11%)</title><rect x="20.6" y="241" width="0.8" height="15.0" fill="rgb(82,82,243)" rx="2" ry="2" />
+<text text-anchor="" x="23.61" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (107 ms, 11.55%)</title><rect x="512.8" y="273" width="90.3" height="15.0" fill="rgb(120,120,207)" rx="2" ry="2" />
+<text text-anchor="" x="515.76" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kthread</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (7 ms, 0.76%)</title><rect x="27.2" y="113" width="6.1" height="15.0" fill="rgb(98,98,244)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (49 ms, 5.29%)</title><rect x="53.6" y="129" width="41.7" height="15.0" fill="rgb(139,139,203)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>process_one_work (89 ms, 9.61%)</title><rect x="437.5" y="241" width="75.2" height="15.0" fill="rgb(121,121,205)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >process_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (0 ms, 0.00%)</title><rect x="276.0" y="145" width="0.1" height="15.0" fill="rgb(124,124,225)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>entry_SYSCALL_64_fastpath (1 ms, 0.11%)</title><rect x="780.7" y="289" width="1.0" height="15.0" fill="rgb(119,119,244)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (1 ms, 0.11%)</title><rect x="46.7" y="113" width="0.5" height="15.0" fill="rgb(109,109,199)" rx="2" ry="2" />
+<text text-anchor="" x="49.66" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_preempt_disabled (44 ms, 4.75%)</title><rect x="171.8" y="177" width="37.4" height="15.0" fill="rgb(89,89,197)" rx="2" ry="2" />
+<text text-anchor="" x="174.76" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kjournald2 (49 ms, 5.29%)</title><rect x="53.6" y="257" width="41.7" height="15.0" fill="rgb(127,127,243)" rx="2" ry="2" />
+<text text-anchor="" x="56.63" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kjo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_read (0 ms, 0.00%)</title><rect x="683.8" y="209" width="0.1" height="15.0" fill="rgb(106,106,200)" rx="2" ry="2" />
+<text text-anchor="" x="686.82" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_wait_cache_io (13 ms, 1.40%)</title><rect x="33.3" y="193" width="11.1" height="15.0" fill="rgb(110,110,209)" rx="2" ry="2" />
+<text text-anchor="" x="36.34" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>entry_SYSCALL_64_fastpath (12 ms, 1.30%)</title><rect x="10.0" y="289" width="10.2" height="15.0" fill="rgb(122,122,235)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_destroy_kmem_caches (48 ms, 5.18%)</title><rect x="131.7" y="193" width="40.1" height="15.0" fill="rgb(99,99,226)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mem..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>memcg_deactivate_kmem_caches (40 ms, 4.32%)</title><rect x="318.4" y="177" width="33.3" height="15.0" fill="rgb(82,82,226)" rx="2" ry="2" />
+<text text-anchor="" x="321.36" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >me..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (48 ms, 5.18%)</title><rect x="131.7" y="81" width="40.1" height="15.0" fill="rgb(123,123,236)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>write_ctree_super (1 ms, 0.11%)</title><rect x="46.7" y="193" width="0.5" height="15.0" fill="rgb(116,116,210)" rx="2" ry="2" />
+<text text-anchor="" x="49.66" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_start_dirty_block_groups (7 ms, 0.76%)</title><rect x="21.4" y="225" width="5.8" height="15.0" fill="rgb(121,121,217)" rx="2" ry="2" />
+<text text-anchor="" x="24.44" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_write_killable (1 ms, 0.11%)</title><rect x="780.7" y="225" width="0.5" height="15.0" fill="rgb(115,115,211)" rx="2" ry="2" />
+<text text-anchor="" x="783.72" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sys_mprotect (0 ms, 0.00%)</title><rect x="20.4" y="273" width="0.2" height="15.0" fill="rgb(82,82,224)" rx="2" ry="2" />
+<text text-anchor="" x="23.44" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (0 ms, 0.00%)</title><rect x="95.3" y="161" width="0.1" height="15.0" fill="rgb(117,117,224)" rx="2" ry="2" />
+<text text-anchor="" x="98.26" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (7 ms, 0.76%)</title><rect x="21.5" y="49" width="5.7" height="15.0" fill="rgb(134,134,198)" rx="2" ry="2" />
+<text text-anchor="" x="24.50" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__do_page_fault (1 ms, 0.11%)</title><rect x="20.6" y="257" width="0.8" height="15.0" fill="rgb(87,87,239)" rx="2" ry="2" />
+<text text-anchor="" x="23.61" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>bit_wait_io (2 ms, 0.22%)</title><rect x="44.4" y="161" width="1.3" height="15.0" fill="rgb(125,125,235)" rx="2" ry="2" />
+<text text-anchor="" x="47.43" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_bit (2 ms, 0.22%)</title><rect x="44.4" y="177" width="1.3" height="15.0" fill="rgb(89,89,210)" rx="2" ry="2" />
+<text text-anchor="" x="47.43" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>app-log-shipp (12 ms, 1.30%)</title><rect x="10.0" y="305" width="10.2" height="15.0" fill="rgb(80,80,212)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="47.2" y="209" width="0.3" height="15.0" fill="rgb(83,83,217)" rx="2" ry="2" />
+<text text-anchor="" x="50.20" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (108 ms, 11.66%)</title><rect x="118.4" y="257" width="90.8" height="15.0" fill="rgb(110,110,234)" rx="2" ry="2" />
+<text text-anchor="" x="121.41" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >worker_thr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_timeout (40 ms, 4.32%)</title><rect x="479.3" y="113" width="33.4" height="15.0" fill="rgb(80,80,233)" rx="2" ry="2" />
+<text text-anchor="" x="482.34" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (3 ms, 0.32%)</title><rect x="781.7" y="177" width="2.4" height="15.0" fill="rgb(126,126,242)" rx="2" ry="2" />
+<text text-anchor="" x="784.73" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kworker/2:1 (90 ms, 9.72%)</title><rect x="276.0" y="305" width="75.7" height="15.0" fill="rgb(131,131,230)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kworker/..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (44 ms, 4.75%)</title><rect x="171.8" y="161" width="37.4" height="15.0" fill="rgb(105,105,218)" rx="2" ry="2" />
+<text text-anchor="" x="174.76" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="20.4" y="225" width="0.2" height="15.0" fill="rgb(85,85,192)" rx="2" ry="2" />
+<text text-anchor="" x="23.44" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__wait_on_bit (1 ms, 0.11%)</title><rect x="45.9" y="129" width="0.8" height="15.0" fill="rgb(87,87,236)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_rwsem_down_write_failed_killable (0 ms, 0.00%)</title><rect x="47.2" y="225" width="0.3" height="15.0" fill="rgb(105,105,218)" rx="2" ry="2" />
+<text text-anchor="" x="50.20" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (0 ms, 0.00%)</title><rect x="47.2" y="177" width="0.3" height="15.0" fill="rgb(131,131,201)" rx="2" ry="2" />
+<text text-anchor="" x="50.20" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kthread (90 ms, 9.72%)</title><rect x="276.0" y="273" width="75.7" height="15.0" fill="rgb(100,100,243)" rx="2" ry="2" />
+<text text-anchor="" x="278.98" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kthread</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (102 ms, 11.01%)</title><rect x="351.7" y="289" width="85.8" height="15.0" fill="rgb(111,111,196)" rx="2" ry="2" />
+<text text-anchor="" x="354.71" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret_from_f..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io_schedule_timeout (1 ms, 0.11%)</title><rect x="45.9" y="97" width="0.8" height="15.0" fill="rgb(105,105,213)" rx="2" ry="2" />
+<text text-anchor="" x="48.88" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__mutex_lock_slowpath (49 ms, 5.29%)</title><rect x="437.7" y="193" width="41.6" height="15.0" fill="rgb(139,139,203)" rx="2" ry="2" />
+<text text-anchor="" x="440.69" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (107 ms, 11.55%)</title><rect x="512.8" y="97" width="90.3" height="15.0" fill="rgb(92,92,200)" rx="2" ry="2" />
+<text text-anchor="" x="515.79" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper_exec (0 ms, 0.00%)</title><rect x="603.1" y="193" width="0.3" height="15.0" fill="rgb(111,111,231)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>call_usermodehelper_exec (0 ms, 0.00%)</title><rect x="437.5" y="193" width="0.2" height="15.0" fill="rgb(125,125,205)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>btrfs_wait_ordered_range (7 ms, 0.76%)</title><rect x="21.4" y="193" width="5.8" height="15.0" fill="rgb(134,134,238)" rx="2" ry="2" />
+<text text-anchor="" x="24.44" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>write_ctree_super (2 ms, 0.22%)</title><rect x="44.4" y="225" width="1.3" height="15.0" fill="rgb(124,124,221)" rx="2" ry="2" />
+<text text-anchor="" x="47.43" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>rcu_barrier (48 ms, 5.18%)</title><rect x="131.7" y="161" width="40.1" height="15.0" fill="rgb(85,85,201)" rx="2" ry="2" />
+<text text-anchor="" x="134.69" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >rcu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (1 ms, 0.11%)</title><rect x="46.7" y="81" width="0.5" height="15.0" fill="rgb(130,130,198)" rx="2" ry="2" />
+<text text-anchor="" x="49.66" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>proc_single_show (115 ms, 12.42%)</title><rect x="683.9" y="209" width="96.8" height="15.0" fill="rgb(116,116,230)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >proc_single..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>do_mprotect_pkey (1 ms, 0.11%)</title><rect x="48.6" y="241" width="0.5" height="15.0" fill="rgb(130,130,225)" rx="2" ry="2" />
+<text text-anchor="" x="51.55" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__vfs_read (115 ms, 12.42%)</title><rect x="683.9" y="241" width="96.8" height="15.0" fill="rgb(95,95,238)" rx="2" ry="2" />
+<text text-anchor="" x="686.93" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__vfs_read</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (89 ms, 9.61%)</title><rect x="437.5" y="289" width="75.2" height="15.0" fill="rgb(111,111,230)" rx="2" ry="2" />
+<text text-anchor="" x="440.53" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ret_from..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (79 ms, 8.53%)</title><rect x="209.2" y="97" width="66.8" height="15.0" fill="rgb(131,131,236)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >schedule</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>down_write_killable (1 ms, 0.11%)</title><rect x="48.6" y="225" width="0.5" height="15.0" fill="rgb(106,106,190)" rx="2" ry="2" />
+<text text-anchor="" x="51.55" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>worker_thread (79 ms, 8.53%)</title><rect x="209.2" y="257" width="66.8" height="15.0" fill="rgb(132,132,235)" rx="2" ry="2" />
+<text text-anchor="" x="212.20" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >worker_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__filemap_fdatawait_range (7 ms, 0.76%)</title><rect x="27.2" y="177" width="6.1" height="15.0" fill="rgb(102,102,242)" rx="2" ry="2" />
+<text text-anchor="" x="30.24" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ret_from_fork (0 ms, 0.00%)</title><rect x="603.1" y="289" width="0.3" height="15.0" fill="rgb(109,109,226)" rx="2" ry="2" />
+<text text-anchor="" x="606.10" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+</svg>
