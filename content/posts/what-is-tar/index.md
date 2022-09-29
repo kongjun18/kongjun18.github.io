@@ -19,9 +19,9 @@ hiddenFromSearch: false
 
 resources:
 - name: featured-image
-  src: featured-image.png
+  src: images/featured-image.webp
 - name: featured-image-preview
-  src: featured-image.png
+  src: images/featured-image.webp
 
 toc:
   enable: true
