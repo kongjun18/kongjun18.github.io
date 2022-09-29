@@ -22,7 +22,7 @@ summary: ""
 resources:
 
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/featured-image.webp
 
 toc:
   enable: true
