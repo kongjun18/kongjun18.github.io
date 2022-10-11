@@ -70,3 +70,6 @@ markup:
   goldmark:
     renderer:
       unsafe: true
+  tableOfContents:
+    endLevel: 4
+    startLevel: 2
