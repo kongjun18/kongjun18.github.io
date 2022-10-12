@@ -1,6 +1,6 @@
 ---
 title: "Lua 语言简明教程"
-date: 2022-10-11T15:31:31+08:00
+date: 2022-01-01T15:31:31+08:00
 draft: false
 author: "Kong Jun"
 authorLink: "https://github.com/kongjun18"

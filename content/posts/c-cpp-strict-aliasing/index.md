@@ -1,6 +1,6 @@
 ---
 title: "C/C++ 的严格别名规则"
-date: 2022-10-11T20:21:59+08:00
+date: 2020-01-24T20:21:59+08:00
 draft: false
 author: "Kong Jun"
 authorLink: "https://github.com/kongjun18"

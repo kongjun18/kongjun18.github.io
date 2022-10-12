@@ -1,6 +1,6 @@
 ---
 title: "GNU C 内联汇编"
-date: 2022-10-11T16:19:13+08:00
+date: 2020-01-24T16:19:13+08:00
 draft: false
 author: "Kong Jun"
 authorLink: "https://github.com/kongjun18"
