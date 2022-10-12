@@ -64,6 +64,13 @@ menu:
       url: "/tags/"
       title: ""
       weight: 3
+    - identifier: "about"
+      pre: ""
+      post: ""
+      name: "关于我"
+      url: "/about/"
+      title: ""
+      weight: 4
 markup:
   highlight:
     noClasses: false
