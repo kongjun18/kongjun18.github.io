@@ -128,7 +128,7 @@ Linux 也硬编码 1、5 和 15 分钟常量。
 
 如果你有一个空闲的系统，然后运行一个单线程 CPU 密集型负载（一个死循环的单线程），60 秒后一分钟平均负载会是多少？如果它只是一个平均值，那它应该是 1.0。这里是一个实验，结果如下：
 
-<img src="images/loadavg.png" title="Load average experiment to visualize exponential damping" alt="Load average experiment to visualize exponential damping" data-align="center">
+<img src="images/loadavg.webp" title="Load average experiment to visualize exponential damping" alt="Load average experiment to visualize exponential damping" data-align="center">
 
 所谓的“一分钟平均负载”在一分钟后只到达 0.62。想了解更多公式和类似实验的话可以阅读 Dr. Neil Gunther 的文章 [How It Works](http://www.teamquest.com/import/pdfs/whitepaper/ldavg1.pdf) 以及 Linux 源代码 [loadavg.c](https://github.com/torvalds/linux/blob/master/kernel/sched/loadavg.c) 中的注释。
 
