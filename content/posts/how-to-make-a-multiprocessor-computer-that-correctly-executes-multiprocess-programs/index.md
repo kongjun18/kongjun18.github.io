@@ -71,7 +71,7 @@ repost:
 
 ![processor-memory-architecture](images/processor-memory-architecture.png)
 
-论文中的 *process* 一词译为*进程*，但不指操作系统的”进程“，更像是*线程*或”运行在处理器上的逻辑流“。*multiprocessor* 译为多处理器，我不区分”多核“和”多处理器“。
+论文中的 *process* 一词译为*进程*，但不指操作系统的”进程“，更像是*线程*或”运行在处理器上的逻辑流“。*multiprocessor* 译为多处理器。
 
 ## 译文
 
