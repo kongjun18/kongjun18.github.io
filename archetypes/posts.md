@@ -8,7 +8,7 @@ authorLink: "{{ .Site.Params.author.link }}"
 authorEmail: "{{ .Site.Params.author.email }}"
 description: ""
 keywords: ""
-comment: false
+comment: true
 weight: 0
 
 tags:
@@ -22,9 +22,9 @@ hiddenFromSearch: false
 summary: ""
 resources:
 - name: featured-image
-  src: featured-image.jpg
+  src: featured-image.webp
 - name: featured-image-preview
-  src: featured-image-preview.jpg
+  src: featured-image.webp
 
 toc:
   enable: true
