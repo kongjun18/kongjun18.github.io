@@ -1,0 +1,24 @@
+#!/bin/bash
+#
+# Generates hugo static resources and convert image to webp format.
+#
+# Project layout:
+# blog
+# ├── blog.git(bare git repo)
+# └── src(work tree)
+#
+# This script is run from blog/blog.git/hooks/post-receive hook. The cwd of post-receive
+# hook is blog/blog.git.
+
+URL=https://www.kongjun18.me/
+BARE_REPO=$(realpath "$(pwd)")
+SRC=$(dirname "${BARE_REPO}")/src
+mkdir -p "${SRC}"
+echo "src: ${SRC}"
+echo "bare: ${BARE_REPO}"
+git --git-dir="${BARE_REPO}" --work-tree="${SRC}" checkout -f
+if [[ ! -d "${SRC}/themes/FixIt/src" ]]; then
+	# -C is necessary，otherwise git command fails.
+	git --git-dir="${BARE_REPO}" --work-tree="${SRC}" -C "${SRC}" submodule update --init --recursive --depth 1
+fi
+(cd "${SRC}" && hugo --minify --baseURL "${URL}" && ./scripts/convert2webp.sh)
