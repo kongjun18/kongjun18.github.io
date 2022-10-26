@@ -1,0 +1,33 @@
+#!/bin/bash
+# Install latex on Debian:
+#   sudo apt-get install -y texlive-xetex texlive-latex-extra texlive-lang-arabic
+#   texlive-lang-german texlive-lang-chinese texlive-science texlive-latex-r
+#
+# Options:
+#   -i input
+#   -o output
+#   -d date
+
+set -e
+set -o pipefail
+
+parseargs() {
+  while getopts "i:o:d:" opt; do
+    case "${opt}" in
+      "i")
+        Input="${OPTARG}"
+        ;;
+      "o")
+        Output="${OPTARG}"
+        ;;
+      "d")
+        Date="${OPTARG}"
+        ;;
+      *)
+        ;;
+    esac
+done
+}
+
+parseargs "$@"
+pandoc --pdf-engine=xelatex --template eisvogel --toc --standalone --toc-depth=4 --number-sections --shift-heading-level-by=-1 --listings -V footnotes-pretty=true -V titlepage=true -V header-right=' ' -V footer_lerft=' ' -V auto_indentifiers=false -V footer-left=" " -V colorlinks=true -V linkcolor=blue -V urlcolor=red -V footnotes-pretty=true -V listings-disable-line-numbers=true -V listings-no-page-break=true -V toc-own-page=true -V CJKmainfont="SimSun" -V date="${Date}" "${Input}" -o "${Output}"

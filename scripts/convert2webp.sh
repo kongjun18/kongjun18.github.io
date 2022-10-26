@@ -11,11 +11,8 @@ convert2webp() {
         local dst="public/${src#*/}"
         # Only convert to webp when webp image not exists or out-of-date.
         if [[ ! -e "${dst}.webp" ]] || [[ $(${GIT} log --format=%ct -1 "${src}") -gt $(stat --format=%Y "${dst}.webp") ]]; then
-            if cwebp "${src}" -o "${dst}.webp"; then
-                echo "converted ${src} to ${dst}.webp"
-            else
-                echo "error in convert ${src} to ${dst}.webp" > /dev/stderr
-            fi
+            echo "converting ${src} to ${dst}.webp"
+            cwebp "${src}" -o "${dst}.webp"
         fi
         echo "image ${dst}.webp is up-to-date."
     done
