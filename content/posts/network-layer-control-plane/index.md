@@ -42,11 +42,11 @@ repost:
 
 传统上，每个路由器都有自己的控制面板，即每个路由器都独立实现了路由算法。
 
-![Per-router-contral-plane](images/Per-router-contral-plane.webp)
+![per-router-control-plane](images/per-router-control-plane.png "per route control plane")
 
 现在，*软件定义网络*迅速发展，使用远程控制器连接路由器，实现逻辑上集中式的控制，路由器给控制器提供必要链路信息，控制器计算路由表并安装到路由器中。
 
-![SND-contral-plane](images/SND-contral-plane.webp)
+![SND-contral-plane](images/SND-contral-plane.png "SND contral plane")
 
 ## 路由算法
 
@@ -54,9 +54,7 @@ repost:
 
 根据不同的指标将路由算法划分为以下三类：
 
-<center>
-<img src="images/TypeOfRouting.webp" alt="Types of routing algorithm">
-</center>
+![type-of-routing](images/type-of-routing.png "types of routing algorithms")
 
 这里介绍集中式的*链路状态路由算法（Link State Algorithm）*和分布式的*距离矢量路由算法（Vector Distance Algorithm）*。
 
@@ -66,9 +64,7 @@ repost:
 
 LS 算法从源节点出发，计算到其他所有主机的最低成本路径，最终得到该节点的路由表。通过 K 轮迭代，得到到 K 个目的节点的路径，这种遍历方式有些类似于图的广度优先遍历。
 
-<center>
-<img src="images/Dijkstras_progress_animation.gif" title="" alt="Digstras progress animation" style="zoom:33%;">
-</center>
+![Digstras-progress-animation](images/dijkstras-progress-animation.gif "Dijstra progress animation")
 
 > What is the shortest way to travel from [Rotterdam](https://en.wikipedia.org/wiki/Rotterdam) to [Groningen](https://en.wikipedia.org/wiki/Groningen), in general: from given city to given city. [It is the algorithm for the shortest path](https://en.wikipedia.org/wiki/Shortest_path_problem), which I designed in about twenty minutes. One morning I was shopping in [Amsterdam](https://en.wikipedia.org/wiki/Amsterdam) with my young fiancée, and tired, we sat down on the café terrace to  drink a cup of coffee and I was just thinking about whether I could do  this, and I then designed the algorithm for the shortest path. As I  said, it was a twenty-minute invention. In fact, it was published in  '59, three years later. The publication is still readable, it is, in  fact, quite nice. One of the reasons that it is so nice was that I  designed it without pencil and paper. I learned later that one of the  advantages of designing without pencil and paper is that you are almost  forced to avoid all avoidable complexities. Eventually, that algorithm  became to my great amazement, one of the cornerstones of my fame.
 >
@@ -76,14 +72,16 @@ LS 算法从源节点出发，计算到其他所有主机的最低成本路径�
 
 将路由域视作路由器的集合 $N$，再划分为查找到最低成本路径的节点集(已访问节点集) $N'$和未查找到最低成本路径的节点集（未访问节点集） $N-N'$，不断扩大 $N'$ ，直到 $N'=N$ 时找到所有节点的最低成本路径。$D(v)$ 表示源节点到目的节点 $v$ 的最低成本路径，$C(x,y)$ 表示直接相连的节点 $x$ 到 $y$ 的链路成本，$p(v)$ 表示路径中 $v$ 的前继节点。
 
-算法分为初始化和迭代两个阶段，初始化段将源节点 $u$ 加入到 $N'$ 中，并设置到其他节点 $v$ 的 $D(v)$，不相邻的 $D(v)$ 设置为 $\infin$。伪代码如下：
+算法分为初始化和迭代两个阶段，初始化段将源节点 $u$ 加入到 $N'$ 中，并设置到其他节点 $v$ 的 $D(v)$，不相邻的 $D(v)$ 设置为 $\infty$。伪代码如下：
 
 ```
 1  Initialization:
-2    N' = {u}                               /* compute least cost path from u to all other nodes */
+     /* compute least cost path from u to all other nodes */
+2    N' = {u}
 3    for all nodes v
-4      if v adjacent to u            /* u initially knows direct-path-cost only to  direct neighbors    */
-5          then D(v) = C(u,v)                   /* but may not be minimum cost!                                                    */
+       /* u initially knows direct-path-cost only to  direct neighbors */
+4      if v adjacent to u
+5          then D(v) = C(u,v) /* but may not be minimum cost! */
 6      else D(v) = ∞
 ```
 
@@ -95,22 +93,22 @@ Loop
     add w to N'
     update D(v) for all v adjacent to w and not in N' :
      D(v) = min ( D(v),  D(w) + C(w,v)  )
-    /* new least-path-cost to v is either old least-cost-path to v or known
-    least-cost-path to w plus direct-cost from w to v */
+    /* new least-path-cost to v is either old least-cost-path
+       to v or known least-cost-path to w plus direct-cost from w to v */
 until N' = N
 ```
 
 Dijkstra 算法的一个例子如下：
 
-![Dijkstra-example](images/Dijkstra-example.webp)
+![Dijkstra-example](images/dijkstra-example.png "Dijkstra example")
 
 另一个例子——基于欧几里得距离的 Dijkstra 算法：
 
-<img src="images/DijkstraDemo.gif" alt="Dijkstra Demo" style="zoom: 67%;" />
+![Dijkstra-algorithm-demo](images/dijkstra-demo.gif "Dijkstra algorithm demo")
 
 Dijkstra 算法存在*路由震荡*的问题，当链路成本依赖于链路流量会出现路由路径反复震荡的现象。考虑以下情形，路由器 b、c、d 向 a 路由数据报，路由器流量分别为 1、e(e<1) 和 1，链路成本有方向并和路由器流量有关。
 
-![route-oscillations](images/route-oscillations.webp)
+![route-oscillations](images/route-oscillations.png "route oscillations")
 
 路由器会立刻迅速发现存在成本更低的路径，然后通过该路径路由，流量涌入该路径后，路径成本增加，原路径成本降低，转而从原路径路由，在两个路由路径间不断震荡。
 
@@ -144,23 +142,21 @@ DV 路由算法有以下特征：
 
 有以下网络拓扑，节点距离矢量的影响每单位向外扩散一跳。节点 c 的距离矢量在 t = 0 时刻改变，t = 1 时刻传播到 b；b 重新计算距离矢量，向相邻节点传播，t = 1 时刻传播到 e；e 重新计算距离矢量，向相邻节点传播，t = 3 时刻传播到 h，h 再重新计算距离矢量并向相邻节点传播……节点距离矢量改变迭代式地传播到其他节点，就好像一颗石子扔进水里，水波向外传播一样。
 
-<img src="images/DV-state-infomation-diffusion.webp" alt="DV-state-infomation-diffusion" style="zoom: 50%;" />
+![DV-state-infomation-diffusion](images/DV-state-infomation-diffusion.png "DV state infomation diffusion")
 
 假设某时刻网络中距离矢量如下，a、c、e 向 b 传播距离矢量，
 
-<img src="images/Distance-vector-example-1.webp" alt="Distance-vector-example-1" style="zoom: 50%;" />
+![distance-vector-example-1](images/distance-vector-example-1.png "distance vector example 1")
 
 b 重新计算距离矢量，并向相邻节点扩散，重复此过程。
 
-<img src="images/Distance-vector-example-2.webp" alt="Distance-vector-example-2" style="zoom:50%;" />
+![distance-vector-example-2](images/distance-vector-example-2.png "distance vector example 2")
 
 各节点异步地扩散自己地距离矢量，一旦链路状态发生变化但距离矢量扩散不及时，路由器就会使用旧路由矢量进行路由，导致*路由回环（routing loop）*。
 
 有三个路由器，Z 通过 Y 路由数据报到 X，成本为 5。XY 链路成本从 4 增大到 60，Z 无法获知 XY 链路成本的变化，仍使用 Z-Y-X 的路径，Y 侦测到 XY 链路成本的变化，重新计算距离矢量，发现 $D_Z(X)$ 只有 5，选择将包转发给 Z。Z 接收到数据报后再传给 Y，Y 重新计算得到 $D_Y(X)=D_Y(X)+D_Z(X)=1+5=6$，将数据报传给 Z。Z 接收到数据报后再传给 Y，Y 重新计算得到 $D_Y(X)=D_Y(X)+D_Z(X0)=1+6=7$……
 
-<center>
-<img src="images/routing-loop.webp" alt="routing-loop">
-</center>
+![routing-loop](images/routing-loop.png "routing loop")
 
 如果 $C(X,Y)$ 增加到无穷大，数据报就会一直在 Y、Z 间回环！路由回环体现了分布式算法的复杂性，这种情况再网络中很常见并且没有完美的办法解决。
 
@@ -180,13 +176,13 @@ b 重新计算距离矢量，并向相邻节点扩散，重复此过程。
 
 按照路由协议运行的位置，可以划分为自治系统内路由协议（如 OSPF）和自治系统间路由协议（BGP）。路由时同时使用域内协议和域间协议，域内路由协议负责在自治域内路由数据报，决定域内路由表条目；域间路由协议负责在自治域间路由数据报，决定域间路由表条目。
 
-<img src="images/AS-and-routing-table.webp" alt="AS-and-routing-table" style="zoom:50%;" />
+![AS-and-routing-table](images/AS-and-routing-table.png "AS and routing table")
 
 ### OSPF：一种链路状态路由协议
 
 *OSPF (Open Shortest Path First)* 协议是典型的 LS 路由协议，使用 Dijkstra 算法，以当前节点为树根计算最低成本路径树。它运行在 IP 协议上，引入了“区域”概念，将 AS 划分为一个骨干区域和多个非骨干区域，所有非骨干区域都和骨干区域相连。链路信息仅在区域中广播，这种设计降低了泛洪的成本。区域的设计允许 ISP 将一个 AS 划分为多层结构，提高网络管理灵活性。
 
-![OSPF](images/OSPF.webp)
+![OSPF](images/OSPF.png "OSPF")
 
 OSPF 协议的消息都通过简单加密算法或 MD5 进行了加密，未成功验证的路由器无法参与到链路信息交换中，提高了网络的安全性。此外，OSPF 还支持多路径路由，当有多条成本相同的路径时，OSPF 可以使用多条路径，避免流量涌入一条路径阻塞网络。
 
@@ -198,7 +194,7 @@ OSPF 协议的消息都通过简单加密算法或 MD5 进行了加密，未成�
 
 为了获取可访问信息，就必须在不同自治域间建立通信；为了让路由器获取转发到目的自治域的最佳路径，就必须在自治域内建立通信。显然，域间可访问性信息通过相邻子自治域网关间通信获得，最佳路径通过网关和内部路由器建立通信计算得到。所以，BGP 连接分为内部连接（iBPG）和外部连接（eBPG）。
 
-<img src="images/BPG-connectivity.webp" alt="BPG-connectivity" style="zoom: 50%;" />
+![BPG-connectivity](images/BPG-connectivity.png "BPG connectivity")
 
 BGP 协议使用 TCP 连接，所以 iBGP 连接是逻辑连接，而不是物理上直接相连。
 
@@ -217,7 +213,7 @@ BGP 最终重要的属性是以下两种：
 - AS-PATH： ASN 列表，表示到某子网所在自治域的路径。
 - NEXT-HOP：下一跳自治域（AS-PATH 起始自治域）的网关 IP 地址。
 
-![BGP-path-advertisement](images/BGP-path-advertisement.webp)
+![BGP-path-advertisement](images/BGP-path-advertisement.png)
 
 AS1 获得 AS3 自治域中子网 X 的域间路由路径过程如下 ：
 
@@ -230,7 +226,7 @@ AS1 获得 AS3 自治域中子网 X 的域间路由路径过程如下 ：
 
 假如内部路由器向外转发数据报有多个网关可以选择，那么内部路由器使用基于*热土豆（hot potato）*策略的算法选择网关。热土豆策略将数据报比喻成热土豆，路由器要尽快将热土豆传给其他路由器以避免烫手，直接将数据报转发给到自己成本最小的网关，不考虑该网关传递给其他自治域的成本如何。
 
-![hot-potato-routing](images/hot-potato-routing.webp)
+![hot-potato-routing](images/hot-potato-routing.png)
 
 以上网络中，2d 要向 AS3 中的子网 X 转发数据报，发现有 2a 和 2c 两个网关可以转发，直接转发给网关 2a，不考虑 2a 传递给 AS3 的成本。热土豆算法中路由器极其短视，仅考虑自己到网关的成本，导致路由路径很可能很差。BGP 使用更加精致的路由算法确定最佳路径：
 
@@ -352,19 +348,19 @@ IPv4 中的 ICMP 称为 ICMPv4，即上面介绍的版本。IPv6 也有 ICMP，�
 
 传统网络中，每个路由器都有自己的控制面板，分布式地计算路由表，这种分布式算法难以提供对路由路径灵活的控制。
 
-<img src="images/Per-router-contral-plane.webp" alt="Per-router-contral-plane" style="zoom:50%;" />
+![per-router-contral-plane](images/per-router-control-plane.png "per router control plane")
 
 比如以下网络中，网络管理员系统主机到服务器的包有红蓝两条路径，一条从 W 路由器转发给 Z，另一条路径从 W 绕一圈再转发给 Z。传统的基于目的 IP 地址的转发策略不能够实现这种功能。
 
-<img src="images/traditional-network-routing-path.webp" alt="traditional-network-routing-path" style="zoom:50%;" />
+![traditional-network-routing-path](images/traditional-network-routing-path.png "traditional network routing path")
 
 *软件定义网络*（*Software Defined Network*，简称 SDN）中远程控制器通过服务器集群实现逻辑上集中式的控制面板，使用*匹配-动作（match add plus）*广义路由转发策略，根据数据包的多个头部（如 IP 头，TCP 头，MAC 地址）进行转发，实现对网络的编程。网络管理员可以通过远程控制器给 W 路由器安装广义转发路由表，让 W 根据不同的源 IP 地址按不同的路径转发。
 
-<img src="images/SND-contral-plane.webp" alt="SND-contral-plane" style="zoom:50%;" />
+![SND-contral-plane](images/SND-contral-plane.png "SND contral plane")
 
 传统网络架构中，路由器是一体式的，往往在专有操作系统上运行专有的协议实现，还为多种不同的网络功能运行不同的中间件（如 NAT 等)。并且，不同的厂商的路由器提供的接口、命令还都不一样，给网络配置带来很大挑战。SDN 打破了封闭的架构，分离控制面板和数据面板，数据面板位于路由器，网络面板位于逻辑集中式的控制器，在网络控制器提供接口上开发网络控制应用，替代传统的庞杂的网络功能实现。
 
-<img src="images/Traditonal-vs-SDN.webp" alt="Traditonal-vs-SDN" style="zoom:50%;" />
+![traditonal-vs-SDN](images/traditonal-vs-SDN.png "traditonal vs SDN")
 
 SDN 使用分层架构，从底层到高层依次为：
 
@@ -376,11 +372,11 @@ SDN 使用分层架构，从底层到高层依次为：
 
 - 网络控制应用：基于状态管理层的状态信息实现网路功能，如负载均衡、路由等。
 
-  <img src="images/SND-architecture.webp" alt="SND-architecture" style="zoom: 50%;" />
+![SND-architecture](images/SND-architecture.png "SND architecture")
 
 物理网络设备和远程控制器间的接口称为*南桥接口*，通常通过 OpenFlow 等协议通信，远程控制器和完了过控制应用间的接口成为*北桥接口*。物理网络设备是 SDN 的最基础设施，为控制器提供状态信息；控制器是实现 SDN 的基石，承上启下，维护网络设备上传的网络状态，并给网络控制应用提供 API；网络控制应用是网络的大脑，负责实现具体的网络功能。
 
-  <img src="images/SDN-controller.webp" alt="SDN-controller" style="zoom:50%;" />
+![SDN-controller](images/SDN-controller.png "SDN controller")
 
 网络设备和控制器通常都实现了 OpenFlow 协议（基于 TCP），通过消息交换数据、下达命令。从两个上行、下行两个方向考察 OpenFlow 消息。
 
@@ -399,7 +395,7 @@ SDN 使用分层架构，从底层到高层依次为：
 
 以下实例展示 SDN 运行的过程。网络中 S1 和 S2 之间的链路出现错误，SDN 应对步骤如下：
 
-<img src="images/SDN-dijkstra-routing-example.webp" alt="SDN-dijkstra-routing-example" style="zoom: 50%;" />
+![SDN-dijkstra-routing-example](images/SDN-dijkstra-routing-example.png "SDN dijkstra routing example")
 
 1. S1 侦测到链路错误使用 OpenFlow 协议向控制器报告事件。
 2. SDN 控制器接收到消息后更新链路状态。

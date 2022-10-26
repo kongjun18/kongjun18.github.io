@@ -11,6 +11,7 @@ weight: 0
 
 tags:
 - Vim
+
 categories:
 - Vim
 
@@ -19,6 +20,7 @@ hiddenFromSearch: false
 
 summary: ""
 resources:
+
 - name: featured-image
   src: images/featured-image.webp
 - name: featured-image-preview
@@ -36,6 +38,7 @@ repost:
   enable: true
   url: ""
 ---
+
 刚接触 Vim 的同学往往因为无法搭建开发环境而“从入门到放弃”，本文旨在帮助这些同学搭建开发环境，聚焦于最核心的开发需求，忽略换配色调字体之类的细枝末节。如果需要开箱即用的 vim 配置（发行版），可以使用 [Spacevim](https://github.com/SpaceVim/SpaceVim)。
 
 本文使用 neovim-nightly，但也适用于 Vim 8.2+，不需要读者有任何 VimL 基础，以 C/C++  为例，但应该适用于任何语言。
@@ -70,13 +73,13 @@ set runtimepath+=~/.vim/plugged/repos/github.com/Shougo/dein.vim " 将 dein.vim 
 if dein#load_state('~/.vim/plugged')        " 参数是插件目录
     call dein#begin(general#plugin_dir)
     call dein#add('~/.vim/plugged/repos/github.com/Shougo/dein.vim')  " 安装 dein.vim
-	call dein#add('junegunn/vim-easy-align') " 用户名/插件名，默认从 github 下载安装
-	call dein#end()
-	call dein#save_state()
+    call dein#add('junegunn/vim-easy-align') " 用户名/插件名，默认从 github 下载安装
+    call dein#end()
+    call dein#save_state()
 endif
 
 if dein#check_install() " 自动安装未安装的插件
-	call dein#install()
+    call dein#install()
 endif
 ```
 
@@ -89,8 +92,6 @@ syntax on
 
 这样可以确保特定于文件类型的插件正常工作。
 
-
-
 ## 代码补全
 
 最简单的代码补全方式是利用 [ctags](https://github.com/universal-ctags/ctags) 生成 tag 文件，补全插件解析 tag 文件进行补全，这种方式有以下两个好处：
@@ -102,7 +103,7 @@ syntax on
 
 目前体验补全体验最好的方式是基于 *LSP*（*Language Server protocal*）的方案。LSP 是一套通信协议，遵从 LSP 规范的客户端（各种编辑器/IDE）可以通过众多 LSP 服务端按协议标准进行通信，由客户端完成用户界面相关的事情，由服务端提编程语言相关的：补全，定义引用查找，诊断，帮助文档，重构等服务。架构图如下：
 
-![LSP](images/LSP.webp)
+![LSP](images/LSP.png "LSP")
 
 有了 LSP，不同的 IDE/编辑器只需要实现 LSP 客户端，专心改进用户体验，所有补全的工作都交给 LSP 服务器。使用基于 LSP 的方案，用户可以在多种语言间无缝切换，让 Vim 支持所有语言（只要有 LSP 实现），用户只需要做以下两件事：
 
@@ -172,18 +173,18 @@ coc.nvim 有自己的配置文件，叫做 coc-settings.json，一般存放在 .
 
 ```json
 {
-	"languageserver": {
+    "languageserver": {
         "ccls": {
-			"command": "ccls",
-			"filetypes": ["c", "cc", "cpp", "c++"],
-			"rootPatterns": [".ccls", "compile_commands.json", ".git/", ".root"],
-			"initializationOptions": {
-				"cache": {
-					"directory": ".cache/ccls"
-				},
+            "command": "ccls",
+            "filetypes": ["c", "cc", "cpp", "c++"],
+            "rootPatterns": [".ccls", "compile_commands.json", ".git/", ".root"],
+            "initializationOptions": {
+                "cache": {
+                    "directory": ".cache/ccls"
+                },
                 "highlight": {"lsRanges": true }
-			}
-		}
+            }
+        }
     }
 }
 ```
@@ -206,9 +207,9 @@ let g:coc_global_extensions` = ['coc-vimlsp', 'coc-rust-analyzer']
 
 [coc-rust-analyzer](https://github.com/fannheyward/coc-rust-analyzer) 之类的 LSP coc 拓展通常利用 coc.nvim 实现了更多 LSP 功能，请优先使用这些拓展，只在没有对应语言的 LSP coc 拓展时手动配置 LSP。
 
-使用 ccls ，即使是在 Linux 这种规模的代码仓库中也可以流畅地补全代码。![code-complete](images/code-complete.gif)
+使用 ccls ，即使是在 Linux 这种规模的代码仓库中也可以流畅地补全代码。
 
-
+![code-completion](images/code-complete.gif "code completion")
 
 ## 错误检查
 
@@ -221,9 +222,7 @@ let g:coc_global_extensions` = ['coc-vimlsp', 'coc-rust-analyzer']
 
 基于外部程序的方案非常灵活，比如，可以在基础的错误检测之外同时使用 clang-tidy 等工具进行检测。目前这种方案最好的插件是 [ale](https://github.com/dense-analysis/ale)，并且 ale 可以与 coc.nvim 共存，用 ale 做实时错误检查，coc.nvim 做补全。如果没有特殊需求，直接使用 coc.nvim 即可。
 
-![dynamic check](images/dynamic-check.gif)
-
-
+![dynamic check](images/dynamic-check.gif "dynamic check")
 
 ## 符号索引
 
@@ -259,9 +258,7 @@ nmap <silent> gc :call CocLocations('ccls','$ccls/call')<CR>
 nmap <silent> gC :call CocLocations('ccls','$ccls/call', {'callee': v:true})<CR>
 ```
 
-![symbol jump](images/symbol-jump.gif)
-
-
+![symbol jump](images/symbol-jump.gif "symbol jump")
 
 ## 任务系统
 
@@ -326,7 +323,7 @@ nnoremap  <Tab>9 :AsyncTask project-run<CR>
 nnoremap  <Tab>0 :AsyncTask project-clean<CR>
 ```
 
-![build-project](images/build-project.gif)
+![build-project](images/build-project.gif "build project")
 
 再回头看前面提到的错误检测，我们可以将执行 linter 的命令写成一个任务，在代码没有语法错误后调用。
 
@@ -358,7 +355,7 @@ vim-lsp-cxx-highlight 基于 LSP 实现精确的高亮，但存在性能问题�
 
 nvim-treesitter，基于语义高亮代码，性能强，容错好。
 
-![highlight](images/highlight.webp)
+![highlight](images/highlight.png "highlight")
 
 配置代码如下：
 
@@ -381,8 +378,6 @@ EOF
 
 **Tip**：您可以在 vimrc 中进行判断，在 Vim 中使用 vim-lsp-cxx-highlight，在 neovim-nightly 中使用 nvim-treesitter，可以参考我配置中的 init.vim 和 autoload/tools.vim。
 
-
-
 ## 文件操作
 
 许多 Vim 外的编辑器用户喜欢使用文件树定位项目文件，但 Vimmer 更喜欢使用模糊查找插件定位文件。尽管如此，文件树也并非一无用处，在浏览自己不熟悉的项目时，文件树插件可以帮助我们了解项目结构。Vim 自带文件树插件，也有许多 vimmer 编写的插件，这里介绍最经典的 [NERDtree](https://github.com/preservim/nerdtree)。
@@ -393,17 +388,17 @@ NERDtree 虽然是最经典的文件树插件，但在许多介绍 Vim 的文章
 
 ```vim
 let g:Lf_PreviewResult = {
-			\ 'File': 0,
-			\ 'Buffer': 0,
-			\ 'Mru': 0,
-			\ 'Tag': 1,
-			\ 'BufTag': 1,
-			\ 'Function': 1,
-			\ 'Line': 0,
-			\ 'Colorscheme': 0,
-			\ 'Rg': 1,
-			\ 'Gtags': 1
-			\}
+            \ 'File': 0,
+            \ 'Buffer': 0,
+            \ 'Mru': 0,
+            \ 'Tag': 1,
+            \ 'BufTag': 1,
+            \ 'Function': 1,
+            \ 'Line': 0,
+            \ 'Colorscheme': 0,
+            \ 'Rg': 1,
+            \ 'Gtags': 1
+            \}
 let g:Lf_PreviewInPopup = 1                       " 在 popup 窗口中预览结果
 let g:Lf_PreviewCode = 1                          " 预览代码
 let g:Lf_RootMarkers = ['.root', 'compile_command.json', '.git'] "你的根目录标志
@@ -419,57 +414,57 @@ nnoremap <Leader>rg :Leaderf rg<Space>             " 调用 ripgrep 查找字符
 
 现在，只要按下 \<Leader>f ，即使是 Linux 这种级别的项目，也能在一瞬间切换到目标文件。
 
-![LeaderF](images/LeaderF.gif)
+![LeaderF](images/LeaderF.gif "LeaderF")
 
 既然 LeaderF 的模糊搜索功能如此强大，能不能让 LeaderF 搜索我们定义的 asynctask.vim 任务？答案当然是可以的！
 
 ```vim
 function! s:lf_task_source(...)
-	let rows = asynctasks#source(&columns * 48 / 100)
-	let source = []
-	for row in rows
-		let name = row[0]
-		let source += [name . '  ' . row[1] . '  : ' . row[2]]
-	endfor
-	return source
+    let rows = asynctasks#source(&columns * 48 / 100)
+    let source = []
+    for row in rows
+        let name = row[0]
+        let source += [name . '  ' . row[1] . '  : ' . row[2]]
+    endfor
+    return source
 endfunction
 
 function! s:lf_task_accept(line, arg)
-	let pos = stridx(a:line, '<')
-	if pos < 0
-		return
-	endif
-	let name = strpart(a:line, 0, pos)
-	let name = substitute(name, '^\s*\(.\{-}\)\s*$', '\1', '')
-	if name != ''
-		exec "AsyncTask " . name
-	endif
+    let pos = stridx(a:line, '<')
+    if pos < 0
+        return
+    endif
+    let name = strpart(a:line, 0, pos)
+    let name = substitute(name, '^\s*\(.\{-}\)\s*$', '\1', '')
+    if name != ''
+        exec "AsyncTask " . name
+    endif
 endfunction
 
 function! s:lf_task_digest(line, mode)
-	let pos = stridx(a:line, '<')
-	if pos < 0
-		return [a:line, 0]
-	endif
-	let name = strpart(a:line, 0, pos)
-	return [name, 0]
+    let pos = stridx(a:line, '<')
+    if pos < 0
+        return [a:line, 0]
+    endif
+    let name = strpart(a:line, 0, pos)
+    return [name, 0]
 endfunction
 
 function! s:lf_win_init(...)
-	setlocal nonumber
-	setlocal nowrap
+    setlocal nonumber
+    setlocal nowrap
 endfunction
 
 let g:Lf_Extensions = get(g:, 'Lf_Extensions', {})
 let g:Lf_Extensions.task = {
-			\ 'source': string(function('s:lf_task_source'))[10:-3],
-			\ 'accept': string(function('s:lf_task_accept'))[10:-3],
-			\ 'get_digest': string(function('s:lf_task_digest'))[10:-3],
-			\ 'highlights_def': {
-			\     'Lf_hl_funcScope': '^\S\+',
-			\     'Lf_hl_funcDirname': '^\S\+\s*\zs<.*>\ze\s*:',
-			\ },
-			\ }
+            \ 'source': string(function('s:lf_task_source'))[10:-3],
+            \ 'accept': string(function('s:lf_task_accept'))[10:-3],
+            \ 'get_digest': string(function('s:lf_task_digest'))[10:-3],
+            \ 'highlights_def': {
+            \     'Lf_hl_funcScope': '^\S\+',
+            \     'Lf_hl_funcDirname': '^\S\+\s*\zs<.*>\ze\s*:',
+            \ },
+            \ }
 nnoremap <silent><leader>T :Leaderf task<CR> "<leader>T 模糊搜索任务
 ```
 
@@ -496,8 +491,6 @@ nmap ]c <Plug>(GitGutterNextHunk)     " 下一处修改
 
 **Tip**：vim-fugitve 还可以用来处理 git conflict，这里不介绍。
 
-
-
 ## 格式化
 
 注释请使用 [vim-format](https://github.com/Chiel92/vim-autoformat)，它易于拓展，可以支持所有文件类型。vim-format 会根据文件类型执行对应的格式化命令，C/C++ 默认使用 clang-format，所以您只需要将 .clang-format 放到项目根目录即可。
@@ -509,8 +502,6 @@ nnoremap <Leader>bf :Autoformat<CR>
 ```
 
 **Tip**：您还可以利用*自动命令*在写入文件时自动格式化，利用*替换命令*在写入文件时自动清除行尾空白。
-
-
 
 ## 注释
 
@@ -604,12 +595,9 @@ function! NERDCommenter_after()
     let g:nerdcommmenter_visual_flag = v:false
     unlet! g:NERDCommenter_mode
 endfunction
-
 ```
 
-![nerdcommenter](images/nerdcommenter.gif)
-
-
+![nerdcommenter](images/nerdcommenter.gif "nerdcommenter")
 
 ## 结语
 

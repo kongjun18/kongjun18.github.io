@@ -38,7 +38,7 @@ repost:
 
 这篇文章以调试 C/C++ 程序为例，介绍 vimspector 的配置与使用。
 
-![dap](images/with-dap.webp)
+![dap](images/with-dap.png "debugger adapter protocol")
 
 ## 依赖
 
@@ -192,7 +192,7 @@ Vimspector 提供了比较灵活的变量定义功能，可以方便的自定义
 
 ### 预定义变量
 
-![predefined variables](images/predefined-variables.webp)
+![predefined variables](images/predefined-variables.png "predefined variables")
 
 ### 自定义变量
 
@@ -521,7 +521,7 @@ let g:vimspector_enable_mappings = 'VISUAL_STUDIO'
 let g:vimspector_enable_mappings = 'HUMAN'
 ```
 
-![mappings](images/mappings.webp)
+![mappings](images/mappings.png "mappings")
 
 这两个套快捷键都要用到 F11 和 F12，往往会和终端快捷键冲突，比如 F11 是最大化终端，F12 是弹出 guake 之类的下拉框终端，建议终端用户重新定义快捷键。参考快捷键：
 
