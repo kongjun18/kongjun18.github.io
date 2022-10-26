@@ -26,7 +26,7 @@ resources:
 - name: featured-image
   src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.webp
+  src: images/featured-image.png
 
 toc:
   enable: true
@@ -83,7 +83,7 @@ Go 语言内存模型在语言层面，保证无数据竞争程序(data-race-fre
 
 - compare-and-swap 同时是 read-like 和 write-like 的。
 
-![happens-before-relationship](images/happens-before-relationship.png)
+![happens-before-relationship](images/happens-before-relationship.png "happens before relationship")
 
 ## 简介
 
@@ -132,7 +132,7 @@ goroutine 执行（goroutine execution）建模为单个 goroutine 执行的内�
 Go *程序执行*（*program execution*）建模为 goroutine 执行的集合，映射 M 指定 read-like 操作读取的 write-like 操作。（同一程序的多个执行可以有不同的程序执行）。
 
 > **译者注**
-> 
+>
 > 同一程序的多个执行可以有不同的程序执行（Multiple executions of the same program can have different program executions.）的实例是多 goroutine 程序，Go scheduler 每次执行调度 goroutine 的结果未必相同，第一次可能 goroutine 1 先运行，第二次执行可能 goroutine 1 后运行。
 
 **要求 2**：对于一个给定的程序执行，映射 M 当仅限于同步操作时，必须可以通过某种和序列（sequencing）一致的同步操作的隐式全序和这些操作读取、写入的值解释。
@@ -140,7 +140,7 @@ Go *程序执行*（*program execution*）建模为 goroutine 执行的集合，
 *synchronized before* 关系是源自 W 的同步内存操作上的偏序。如果一个同步 read-like 内存操作 *r* 观察（observes）到一个同步 write-like 内存操作 *w*（也就是说，如果 *W(r)* = *w*），那么 *w* *synchronized before* *r*。非正式地，synchronized before 关系是前面提到的隐含的全序的一个子集，仅限于 *W* 直接观察到的信息。
 
 > **译者注**
-> 
+>
 > 这里的意思应该是，当 M 是一个同步操作时，程序执行的结果可以通过一个符合顺序一致模型的执行次序解释。
 
 **要求 3**: 对一个平凡的（非同步的）在内存位置 *x* 上的数据读取 *r*，*W(r)* 必须是对 *r* *可见的*（*visible*）写 *w*，这里的可见意味着同时满足以下两点：
@@ -150,7 +150,7 @@ Go *程序执行*（*program execution*）建模为 goroutine 执行的集合，
 2. *w* 不 happen before 任何其他 happens before r 的向 *x* 的写 *w'*。
 
 > **译者注**
-> 
+>
 > 这个 *W(r)* 读到的是最近一次 happens before *r* 的 *w* 的结果。
 
 内存位置 *x* 上的*读-写数据竞争*（*read-write data race*）包含一个 *x* 上的 read-like 内存操作 *r* 和一个 *x* 上的 write-like 内存操作 *w*，其中至少一个是非同步（的non-synchronizing），这样的读写会乱序 happens before（也就是说，既不 *r* happens before *w*，也不 *w* happens before *r*）。
@@ -174,7 +174,7 @@ Go *程序执行*（*program execution*）建模为 goroutine 执行的集合，
 否则，一个不大于一个机器字的内存位置 *x* 上的读 *r* 必须观察到一些写 *w*，使得 *r* 不 happens before *w*，且没有一个写 *w'* 使得 *w* happens before *w'* 且 *w'* happens before *r*。
 
 > **译者注**
-> 
+>
 > 上面的讲法，简单地说就是：小于一个机器字的 *W(r)* 读到的是最近一次 happens before *r* 的 *w* 的结果。
 
 此外，不允许观察到非因果的和凭空产生的写。
@@ -217,9 +217,9 @@ func hello() {
 调用`hello`将在未来的某个点（可能在`hello`返回后）打印`"hello, world"`。
 
 > **译者注**
-> 
+>
 > `a = "hello, world"` sequenced before `go f()`
-> 
+>
 > `go f()` synchronized before `f()`
 
 ### 销毁 goroutine
@@ -238,7 +238,7 @@ func hello() {
 没有任何同步事件跟随在对`a`赋值后，所以不保证它可以被其他任何 goroutine 观察到。事实上，激进的编译器可以删除这整个`go`语句。
 
 > **译者注**
-> 
+>
 > Go 内存模型规定”goroutine 的退出不 synchronized before 程序的任何事件“，这里创建的 gouroutine 的任何操作不被任何其他 goroutine 观察到是**合法的**。因此编译器可以认为这个`go`语句不产生任何影响，是多余的，直接删掉。
 
 如果一个 goroutine 的副作用必须被另一个 goroutine 观察到，请使用锁或 channel 通信之类的同步机制建立一个相对次序（relative ordering）。
@@ -298,7 +298,7 @@ func main() {
 如果 channel 是有缓冲的（例如`c = make(chan int, 1)`），那就不能保证这个程序打印`"hello, world"`。（它可能打印空字符串，崩溃或做别的什么事。）
 
 > **译者注**
-> 
+>
 > `c`上的第一次接收 synchronized before 其上第 1+1=2 次发送，因此程序中 `<- c`和`c <- 0`不构成 synchronized before 关系，不能保证`print(a)`观察到`a = "hello, world"`。
 
 *容量为 C 的 channel 上的第 k 次接收 synchronized before 其上第 k+C 次发送的完成*。
@@ -329,7 +329,7 @@ func main() {
 *对于任意`sync.Mutex`或`sync.RWMutex`变量`l`和 n < m，第 n 次调用`l.Unlock()` synchronized before 第 m 次调用`l.Lock()`返回。*
 
 > **译者注**
-> 
+>
 > 注意！这里是 n < m，意味着第 N 次 unlock 和第 N 次 lock 不构造 synchronized before 关系。下面的程序就是例子。
 
 这个程序：
@@ -358,9 +358,9 @@ func main() {
 *对`l.TryLock`（或`l.TryRLock`）的成功调用等价于调用`l.Lock`（或`l.RLock`）。不成功的调用完全没有同步效果*。就内存模型而言，可以认为`l.TryLock`（或`l.TryRlock`）即使在互斥锁`l`被解锁时也能够返回 false。
 
 > **译者注**
-> 
+>
 > 原文没有详细解释“就内存模型而言，可以认为`l.TryLock`（或`l.TryRlock`）即使在互斥锁`l`被解锁时也能够返回 false。”
-> 
+>
 > 我认为这样讲是因为，`l.Lock`（或`l.RLock`）执行成功也未必会有同步效果（见上面 unlock 和 lock 的规则），如果`l.Lock`（或`l.RLock`)执行成功但没有同步效果，等价于对应的`l.TryLock`（或(`l.TryRLock`)没有同步效果，相当于`l.TryLock`（或`l.TryRLock`）调用失败的情形。
 
 ### Once
@@ -368,7 +368,7 @@ func main() {
 `sync`包通过`Once`类型提供了一种多 goroutine 情形下安全的初始化机制。多个线程可以为特定`f`执行`once.Do(f)`，但只有一个会运行`f()`，其他的调用阻塞直到`f()`返回。
 
 > **译者注**
-> 
+>
 > 这里和下文的线程都指 goroutine。
 
 *`once.Do(f)`中单个`f()`调用的完成 synchronized before 任何`once.Do(f)`调用。*
@@ -403,9 +403,9 @@ func twoprint() {
 前面的定义和 C++ 顺序一致的原子类型以及 Java `volatile`遍历有相同语义。
 
 > **译者注**
-> 
+>
 > 这里的同步不是指锁等同步原语协调不同线程的执行次序，而是指可见性，不能混为一谈。
-> 
+>
 > 锁等同步原语已经实现了这种可见性上的同步，详见上面的同步规则。
 
 ### Finalizer
@@ -413,7 +413,7 @@ func twoprint() {
 `runtime`包提供一个`SetFinalizer`函数，添加一个当特定对象不可达后被调用的 finalizer。调用`SetFinalizer(x, f)`synchronized before 调用`f(x)`。
 
 > **译者注**
-> 
+>
 > Finalizer 即对象不可从程序访问后调用的回调函数，对象不可从程序访问意味着该对象该被垃圾回收器回收了。
 
 ### 其他机制
@@ -427,7 +427,7 @@ func twoprint() {
 带数据竞争的程序是错误的，可以表现出非顺序一致的执行。特别要注意读 *r* 可以观察到任何和 *r* 并发的写 *w* 写入的值。即使发生这种情况，也不意味发生在 *r* 之后的读可以观察到发生在 *w* 之前的写。
 
 > **译者注**
-> 
+>
 > 满足 happens before 关系才可以保证 *r* 观察到 happens before 关系上最近的 *w*。
 
 在这个程序中：
@@ -617,13 +617,13 @@ for i := 0; i < m; i++ {
 前提是可以证明`*shared`在访问时不会出错，因为潜在添加的读取不会影响任何现有的并发读取或写入。 另一方面，这种重写在源到源的翻译器中是无效的。
 
 > **译者注**
-> 
+>
 > 禁止引入数据竞争是为了确保多线程程序的正确执行（程序执行的副作用和原始程序的相同），如果引入了数据竞争但不影响多线程程序的执行，那么提高性能却引入数据竞争的编译器优化是合理的。
-> 
+>
 > 在这个改写中，程序在 for 语句之前读取一次`*shared`，循环中不再读取。从 Go 语言内存模型的视角看，原始程序中对`*shared`的访问没有任何同步操作，不保证循环中能观察到其他 goroutine 的修改。因此循环中`*shared`只观察到 for 语句开始时的值是合法的。
-> 
+>
 > 从处理器内存一致性模型的角度看，绝大多数现代处理器（例如 AMD64、ARM）都允许 store-load reroder。因此不保证循环中能观察到其他线程对`*shared`的修改。
-> 
+>
 > 在这些允许 store-load reorder 的处理器上，编译器的改写是合理的。但在不允许 store-load reorder 的处理器上，循环中一定能观察到其他线程对`*shared`的修改，改写不等价，因此原文说“基本上在所有 CPU 上，都可以重写”、“这种重写在源到源的翻译器中是无效的”。
 
 ## 结论

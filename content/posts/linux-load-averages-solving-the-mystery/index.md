@@ -85,7 +85,7 @@ $ cat /proc/loadavg
 
 [ietf.org](https://tools.ietf.org/html/rfc546) 上链接了一个于 1973 年手绘的平均负载折线图，这说明多年前人们就用平均负载监控系统。
 
-<img src="images/rfc546.png" title="" alt="source: https://tools.ietf.org/html/rfc546" data-align="center">
+![source: https://tools.ietf.org/html/rfc546](images/rfc546.png "source: https://tools.ietf.org/html/rfc546")
 
 今天可以在网上找到这个古老操作系统的源代码，这里是上世纪 70 年代早期的 [TENEX](https://github.com/PDP-10/tenex) 系统的 DEC 汇编代码节选：
 
@@ -128,7 +128,7 @@ Linux 也硬编码 1、5 和 15 分钟常量。
 
 如果你有一个空闲的系统，然后运行一个单线程 CPU 密集型负载（一个死循环的单线程），60 秒后一分钟平均负载会是多少？如果它只是一个平均值，那它应该是 1.0。这里是一个实验，结果如下：
 
-<img src="images/loadavg.webp" title="Load average experiment to visualize exponential damping" alt="Load average experiment to visualize exponential damping" data-align="center">
+![Load average experiment to visualize exponential damping](images/loadavg.png "Load average experiment to visualize exponential damping")
 
 所谓的“一分钟平均负载”在一分钟后只到达 0.62。想了解更多公式和类似实验的话可以阅读 Dr. Neil Gunther 的文章 [How It Works](http://www.teamquest.com/import/pdfs/whitepaper/ldavg1.pdf) 以及 Linux 源代码 [loadavg.c](https://github.com/torvalds/linux/blob/master/kernel/sched/loadavg.c) 中的注释。
 
@@ -448,7 +448,7 @@ termc$ uptime
 
 ## 什么是”好”的或“坏”的平均负载？
 
-<img src="images/vectorloadavg.png" title="" alt="Load averages measured in a modern tool" data-align="center">
+![Load averages measured in a modern tool](images/vectorloadavg.png "Load averages measured in a modern tool")
 
 一些人发现某些阈值适用于他们的系统和工作负载：当他们的平均负载超过 X 时，应用延迟很高并且客户开始抱怨。但是这里并没有一种普世的规则。
 

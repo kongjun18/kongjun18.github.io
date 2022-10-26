@@ -63,13 +63,13 @@ repost:
 
 方框表示指令，横轴表示次序。在处理器 1 上，先执行 A 再执行 B，处理器 2 上先执行 C 再执行 D。最终用户看到的执行次序是平移两个轴合并起来（保持相对次序，交替执行）。两种（不只两种）可能的次序如下。
 
-![sequential consistency](./images/sequential-consistency.svg)
+![sequential consistency](./images/sequential-consistency.png "sequential consistency")
 
 顺序一致模型不仅局限于多核处理器。从更普遍的角度看，顺序一致模型是分布式系统中符合用户直觉的一致性模型。多核处理器是分布式系统的一个特例。将上图的处理器替换为“节点”，将指令替换为”事件”，将执行次序替换为时间发生次序，就可以得到更加普遍的顺序一致性语义。事实上，本文中作者就使用了”事件“（*event*）一词，而非局限在处理器指令。
 
 论文基于以下模型讨论处理器设计：数据存储在内存模块中，处理器内存模块发起内存访问请求，内存模块响应请求。
 
-![processor-memory-architecture](images/processor-memory-architecture.png)
+![processor-memory-architecture](images/processor-memory-architecture.png "processor memory architecture")
 
 论文中的 *process* 一词译为*进程*，但不指操作系统的”进程“，更像是*线程*或”运行在处理器上的逻辑流“。*multiprocessor* 译为多处理器。
 

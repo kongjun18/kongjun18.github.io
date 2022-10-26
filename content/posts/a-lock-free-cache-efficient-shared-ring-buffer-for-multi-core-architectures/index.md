@@ -58,14 +58,12 @@ MCRingBuffer 将环形缓存区划分为多个块，块划分为多个槽。
 
 以下是写者视角的 MCRingBuffer。
 
-<center>
-<img src="images/writer-view-of-ring-buffer.svg" alt="writer-view-of-ring-buffer">
-</center>
+![writer-view-of-MCRingBuffer](images/writer-view-of-MCRingBuffer.png "writer view of MCRingBuffer")
 
 ## 版权
 
 > Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. To copy otherwise, or republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee.
-> 
+>
 > ICS’09, June 8–12, 2009, York Town Heights, New York, USA. Copyright 2009 ACM 978-1-60558-498-0/09/06...$5.00.
 
 <center><b>A Lock-Free, Cache-Efficient Shared Ring Buffer for Multi-Core Architectures</b></center>
@@ -172,9 +170,7 @@ function Extract(T* element)
 
 图 2 展示了环形缓冲区容量为 2000 个元素的时，BasicRingBuffer 和不同 MCRingBuffer 变种的吞吐量与数据元素大小的关系。总体而言，MCRingBuffer 实现了比 BasicRingBuffer 更大的吞吐量。例如，当元素大小为 64 字节时，`bachSize=50`的 MCRingBuffer 的吞吐量分别是同级和不同级核心上的 BasicRingBuffer 的 4.9 被和 2.5 倍。
 
-<center>
-<img src="images/throughput-vs-element-size.svg" alt="throughput-vs-element-size" width="120%" height="120%">
-</center>
+![throughput-vs-element-size](images/throughput-vs-element-size.png "throughput vs element size")
 
 ## 结论
 

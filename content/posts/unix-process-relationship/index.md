@@ -39,7 +39,6 @@ repost:
 
 UNIX是分时系统，同时运行着多个进程，进程之间相互联系，形成了进程组、会话等进程关系，这些进程关系会影响某些函数/系统调用和信号的行为。
 
-
 ## 进程的起源
 
 所有的进程都有一共同的起源，加电开机启动操作系统并登录（获取*login shell*）就是用户进程的起始[^1]。这里介绍传统的UNIX登录机制。
@@ -53,13 +52,14 @@ UNIX登录的过程一般分为两种：
 
 网络登录就是通过网络登录远程计算机取得 login shell，比如腾讯云、阿里云的 Linux 服务器，登录后就是命令行黑框框，就好像是在本地登录的一样。
 
-
-
 ## BSD 终端登录
 
 1. 启动 init 进程，init 进程可能会读取终端相关的配置文件，如 /etc/ttys 等。
+
 2. 为每个终端 fork 出一个子进程，并使用`exec()`函数执行`getty()`例程。
+
 3. `getty()`例程打开终端设备（标准输出、标准输入、标准错误）、读取用户名、初始化环境变量，并使用`exec()`系列函数执行login 例程。
+
 4. login 例程接收密码，如果验证成功就修改工作目录到家目录、修改终端所有权、设置用户信息（UID、GID等）、初始化环境变量（SHELL、PATH等）后执行 login shell。
 
 5. 如果验证失败，终止进程，init 进程再次执行步骤2。
@@ -67,8 +67,6 @@ UNIX登录的过程一般分为两种：
 通过以上步骤，用户就取得了 login shell，并且 login shell 是 init 进程的子进程（exec 系列函数只执行程序不改变进程ID)。login shell 也会读取它的配置文件来初始化自身。
 
 BSD 的终端登录方式在 UNIX 世界有巨大的影响，被许多 UNIX 实现采用，比如 Linux 早期版本（Linux 0.12）就是用类似 BSD 的登录方式。现在终端登录复杂了很多，许多系统装有 X window，登录后是图形界面而不是字符界面。GNU/Linux 发行版在终端登录上也存在很大的分歧，有些发行版仍使用 init 进程，另一些发行版（比如 Red Hat）使用 systemd 代替传统的 init。
-
-
 
 ## 网络登录
 
@@ -81,8 +79,6 @@ BSD 的终端登录方式在 UNIX 世界有巨大的影响，被许多 UNIX 实�
 2. 当有用户请求连接时，inetd 进程 fork 并 exec 出 telnetd 进程
 
 3. telnetd 进程打开伪终端并启动 login shell
-
-
 
 ## 进程与进程组
 
@@ -106,14 +102,14 @@ UNIX 没有为进程组 ID 提供专门的数据类型，PGID 的数据类型与
  使用`setpgid`()时需要注意权限问题：
 
 - 只能将进程加入到本会话的进程组中。
+
 - 只能修改调用进程及其子进程的 PGID。
+
 - 只能用于未执行 exec 系列函数的进程。
 
 - 不可以修改会话首领的 PGID。
 
 只要违反了以上规定，`setpgid()`就会出错并设置 errno。
-
-
 
 ## 会话与控制终端
 
@@ -128,7 +124,7 @@ proc3 | proc4 | proc5
 
 当执行完第一行的命令后，bash 创建了两个进程，这两个进程在同一个进程组中;执行完第二行命令后，shell创建了3个进程，处于另一个进程组中。这两个进程组及 shell 本身处于同一个会话中。这个各会话可以用下图[^3]表示：
 
-![session-and-process-group](images/session-and-process-group.webp)
+![session-and-process-group](images/session-and-process-group.png "session and process group")
 
 一个会话由多个进程组组成，其中创建该会话的进程被称为*会话首领*（*session leader*），也叫做 *controlling process*。会话也有自己的 ID，称为*会话 ID*（*SID*）。会话 ID 被定义为会话首领所在的进程组 ID。实际上，会话首领也一定是进程组首领，因此 SID、会话首领 PID、会话首领 PGID 是一致的。会话首领创建了会话，并唯一地标识了一个会话，拥有特殊的地位。
 
@@ -154,13 +150,12 @@ proc3 | proc4 | proc5
 - 成为新会话的会话首领
 
 - 创建新进程组并担任组长
+
 - 断开与控制终端的连接
 
 为了避免调用进程是进程组首领，创建新会话后，进程组组长在新会话中，进程组组员在旧会话中的尴尬局面，`setsid()`调用不允许调用进程是进程组组长。为了避免新会话和旧会话共用一个控制终端，`setsid()`创建新会话后会切断与旧控制终端的联系，新会话没有控制终端，需要手动打开。
 
 前台进程组、会话 ID 是控制终端的属性，可以使用`tcgetprg()`获得前台进程组 ID（*TPGID*）、`tcsetprg()`设置终端的前台进程组、`tcgetsid()`获取控制终端的当前会话 ID。
-
-
 
 ## 作业控制
 
@@ -176,8 +171,6 @@ proc3 | proc4 | proc5
 
 上面提到，`fork()`出来的子进程会继承父进程的 PGID，而我们在 shell 运行命令创建进程后，命令对应的进程是 shell 的子进程，但却出于不同的进程组中。这就是因为 shell 在 exec 可执行文件前，使用`setpgid()`创建了新进程组并让子进程作为组长。这种情况存在*竞争条件*（*racing condition*），假如只通过父进程设置子进程 PGID。若父进程先运行，则子进程 PGID 被成功设置;若子进程先运行，并在执行了`exec()`系列函数后切换到父进程，`setpgid()`无法修改调用了`exec()`的进程的 PGID，所以子进程使用父进程的 PGID。为了避免竞争，通常父子进程都要设置子进程 PGID。
 
-
-
 ## 孤儿进程和孤儿进程组
 
 孤儿进程是指父进程在其运行过程中终止的进程。孤儿进程会被 init 进程收养，init 进程会回收孤儿进程遗留的资源，确保孤儿进程不会僵尸进程。因为孤儿进程的这个特性，有时会故意让一个进程变成孤儿进程，避免僵尸进程的产生。
@@ -190,8 +183,6 @@ proc3 | proc4 | proc5
 孤儿进程组相比与一般的进程组，特殊之处在于当孤儿进程组中存在停止状态的进程时，内核会向孤儿进程组中所有进程先发送`SIGHUP`信号（默认行为是终止进程）再发送`SIGCONT`信号。如果不了解孤儿进程组，程序很可能会出现很怪异的现象
 
 孤儿进程组还会影响 SIGTTOU 和 SIGTTIN 信号。当孤儿进程组中的后台进程试图通过读取终端输入或试图向终端写入数据时，不会产生这两个信号。
-
-
 
 ## 总结
 
@@ -207,11 +198,11 @@ proc3 | proc4 | proc5
 
 整篇文章的内容可以用以下图示[^4]总结：
 
-![conclusion](images/conclusion.webp)
+![conclusion](images/conclusion.png "conclusion")
 
 **注**：以上两个图示均来自《UNIX 环境高级编程（英文版）》第三版。
 
 [^1]: 系统启动后，内核会创建一个进程 0，这个进程是真正的进程之祖，由内核专门的代码创建，其他所有进程要么是它 fork 出来的，要么是它的子孙 fork 出来的。这个进程 0 一般代表操作系统内核本身，不参加进程调度，在系统没有任何进程活动时占据 CPU。
-[^2]: 后台进程组不能使用控制终端是默认情况下的行为，可以修改控制终端的属性调整。
-[^3]:  Figure 9.7, *Advanced Programming in the UNIX® Environment,Second Edition*
-[^4]: Figure 9.9, *Advanced Programming in the UNIX® Environment,Second Edition*
+后台进程组不能使用控制终端是默认情况下的行为，可以修改控制终端的属性调整。
+Figure 9.7, *Advanced Programming in the UNIX® Environment,Second Edition*
+Figure 9.9, *Advanced Programming in the UNIX® Environment,Second Edition*

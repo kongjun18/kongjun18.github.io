@@ -22,9 +22,9 @@ hiddenFromSearch: false
 summary: ""
 resources:
 - name: featured-image
-  src: featured-image.webp
+  src: featured-image.png
 - name: featured-image-preview
-  src: featured-image.webp
+  src: featured-image.png
 
 toc:
   enable: true

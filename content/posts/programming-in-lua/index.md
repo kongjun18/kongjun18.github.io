@@ -78,7 +78,7 @@ Lua 中的字符串字面量既可以使用`"`包围，也可以使用 `'`包围
 Lua 支持*长字符串*（*long string*），长字符串使用匹配的`[[`和`]]`包裹起来，其中所有的转义字符和回车会被保留，如果第一个字符是回车，会清除掉这个换回车。长字符串不是一种新类型，只是一种在特定场合（大量文本）书写更方便的形式。不建议在长字符串中存储数据，如果需要存储在字符串中，建议使用括号包围的字符串写法。
 
 ```lua
-- 以下两种写法的输出是相同的
+-- 以下两种写法的输出是相同的
 print("on one line\non next line")
 -------------------------------------
 print([[
@@ -569,7 +569,7 @@ end
 
 函数调用是堆栈布局变化如下：
 
-![tail-recursive-elimination-stack](images/tail-recursive-elimination-stack.svg)
+![tail-recursive-elimination-stack](images/tail-recursive-elimination-stack.png "the stack in tail tail recursion")
 
 当 *caller* 中最后一个动作是返回 *called* 调用的结果时，即以下代码片段：
 
@@ -992,12 +992,12 @@ end
 
 Lua 的运行环境是 ANSI C，ANSI C 中没有路径的概念，因此 Lua 也没有路径的概念，Lua 使用*模式*来表示“路径”。模板由多个路径组成，路径之间由 *;* 分割，其中模块名使用 *?* 代替，运行时模块名会替换 *?* 。
 
-如路径为 ?;?.lua;c:\windows\?;/usr/local/lua/?/?.lua ，导入模块 *sql*，Lua 将依次尝试以下文件：
+如路径为`?;?.lua;c:\windows\?;/usr/local/lua/?/?.lua`，导入模块 *sql*，Lua 将依次尝试以下文件：
 
-- sql
-- sql.lua
-- c:\windows\sql
-- /usr/local/lua/sql/sql.lua
+- `sql`
+- `sql.lua`
+- `c:\windows\sql`
+- `/usr/local/lua/sql/sql.lua`
 
 模块的搜索路径：*package.path*，*package.cpath*。这 *package.path* 由 *LUA_PATH*、内置路径（Lua编译时写入）决定; *package.cpath* 由 *LUA_CPATH* 、内置路径（Lua编译时写入）决定。
 
