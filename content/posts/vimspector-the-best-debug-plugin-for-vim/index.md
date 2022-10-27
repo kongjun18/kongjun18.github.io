@@ -2,7 +2,7 @@
 title: "Vimspector: 最强 Vim 调试插件"
 date: 2020-05-05T16:14:32+08:00
 draft: false
-author: "Kong Jun"
+author: "孔俊"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 keywords: "Vim"

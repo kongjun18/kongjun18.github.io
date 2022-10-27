@@ -3,7 +3,7 @@ title: "【译】 如何设计正确运行多进程程序的多核计算机"
 subtitle: "How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs"
 date: 2022-10-09T15:24:14+08:00
 draft: false
-author: "Kong Jun"
+author: "孔俊"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 keywords: ["Concurrency", "Computer Architecture"]

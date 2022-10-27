@@ -2,7 +2,7 @@
 title: "【译】拨开 Linux 平均负载的谜团"
 subtitle: "Linux Load Averages: Solving the Mystery"
 date: 2022-09-27T14:27:44+08:00
-author: "Kong Jun"
+author: "孔俊"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 description: ""

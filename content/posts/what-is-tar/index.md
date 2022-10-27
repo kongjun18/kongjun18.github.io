@@ -1,7 +1,7 @@
 ---
 title: "什么是 tar"
 date: 2022-09-21T17:42:25+08:00
-author: "Kong Jun"
+author: "孔俊"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 license: "All rights reserved"

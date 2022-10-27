@@ -2,7 +2,7 @@
 title: "Lua 语言简明教程"
 date: 2022-01-01T15:31:31+08:00
 draft: false
-author: "Kong Jun"
+author: "孔俊"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 keywords: "Lua"

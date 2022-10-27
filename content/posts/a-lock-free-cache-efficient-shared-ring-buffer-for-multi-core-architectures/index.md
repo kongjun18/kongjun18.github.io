@@ -3,7 +3,7 @@ title: "【译】一种面向多核架构的无锁、缓存高效的共享环形
 subtitle: "A Lock-Free, Cache-Efficient Shared Ring Buffer for Multi-Core Architectures"
 date: 2022-10-13T22:26:21+08:00
 draft: false
-author: "Kong Jun"
+author: "孔俊"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 description: ""
