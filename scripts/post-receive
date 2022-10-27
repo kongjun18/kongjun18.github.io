@@ -25,4 +25,4 @@ if [[ ! -d "${SRC}/themes/FixIt/src" ]]; then
 	# -C is necessary，otherwise git command fails.
 	${GIT} -C "${SRC}" submodule update --init --recursive --depth 1
 fi
-(cd "${SRC}" && hugo --minify --baseURL "${URL}" && ./scripts/convert2webp.sh)
+(cd "${SRC}" && hugo --minify --baseURL "${URL}" && ./scripts/convert2webp.sh && ./scripts/convert2pdf.sh && ./scripts/generate-pdf-index.sh && hugo --minify --baseURL "${URL}")

@@ -1,8 +1,12 @@
 #! /bin/bash
 
+set -e
+set -o pipefail
+
 archive_dir="public/archives"
 mkdir -p "${archive_dir}"
 MARKDWN2PDF="$(realpath ./scripts/markdown2pdf)"
+
 for post in public/posts/*; do
   if [[ -d "${post}" ]] && [[ -e "${post}/index.html" ]]; then
     index_md="content/${post#public/}/index.md"
@@ -15,7 +19,7 @@ for post in public/posts/*; do
       archived_pdf="$(realpath "${archived_pdf}")"
       (cd "${post_dir}" && ${MARKDWN2PDF} -i index.md -d "${date}" -o "${archived_pdf}")
     else
-      echo "${archive_dir} is up-to-date."
+      echo "${archived_pdf} is up-to-date."
     fi
   fi
 done
