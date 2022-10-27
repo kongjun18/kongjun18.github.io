@@ -24,7 +24,7 @@ params: # 覆盖默认选项
     code:
       maxShownLines: 40
   author: # 作者信息，用于 archetypes 模版
-    name: "Kong Jun"
+    name: "孔俊"
     email: "kongjun18@outlook.com"
     link: "https://github.com/kongjun18"
   home:

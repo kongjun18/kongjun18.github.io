@@ -2,7 +2,7 @@
 title: "GNU C 内联汇编"
 date: 2020-01-24T16:19:13+08:00
 draft: false
-author: "Kong Jun"
+author: "孔俊"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 keywords: ["C", "Assembly"]

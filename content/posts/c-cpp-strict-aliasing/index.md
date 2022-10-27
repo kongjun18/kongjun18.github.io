@@ -2,7 +2,7 @@
 title: "C/C++ 的严格别名规则"
 date: 2020-01-24T20:21:59+08:00
 draft: false
-author: "Kong Jun"
+author: "孔俊"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 keywords: ["C", "C++"]

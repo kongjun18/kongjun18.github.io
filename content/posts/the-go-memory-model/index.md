@@ -3,7 +3,7 @@ title: "【译】Go 语言内存模型：2022-06-06 版"
 subtitle: "The Go Memory Model: Version of June 6, 2022"
 date: 2022-10-20T11:46:49+08:00
 draft: false
-author: "Kong Jun"
+author: "孔俊"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 keywords: ["Memory Model", "Go", "Computer Architecture", "Concurrency"]
