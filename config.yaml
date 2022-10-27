@@ -64,13 +64,20 @@ menu:
       url: "/tags/"
       title: ""
       weight: 3
+    - identifier: "archives"
+      pre: ""
+      post: ""
+      name: "归档"
+      url: "/archives/"
+      title: ""
+      weight: 4
     - identifier: "about"
       pre: ""
       post: ""
       name: "关于我"
       url: "/about/"
       title: ""
-      weight: 4
+      weight: 5
 markup:
   highlight:
     noClasses: false
