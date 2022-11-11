@@ -29,6 +29,8 @@ params: # 覆盖默认选项
       ways:
         wechatpay: "/wechatpay.png"
         alipay: "/alipay.jpg"
+  tagcloud:
+    enable: true
   author: # 作者信息，用于 archetypes 模版
     name: "孔俊"
     email: "kongjun18@outlook.com"
