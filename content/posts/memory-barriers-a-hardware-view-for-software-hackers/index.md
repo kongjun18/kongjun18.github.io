@@ -40,7 +40,8 @@ repost:
   url: ""
 ---
 ## 译者序
-<a href=resources/memory-barriers-a-hardware-view-for-software-hackers.pdf><i>Memory Barriers: a Hardware View for Software Hackers</i></a> 是并发编程专家 Paul E. McKenney 的经典论文，该论文同时收录在他的著作 *Is Parallel Programming Hard, And, If So, What Can You Do About It?* 附录 C *Why Memory Barriers?* 中。
+[*Memory Barriers: a Hardware View for Software Hackers*](resources/memory-barriers-a-hardware-view-for-software-hackers.pdf)
+是并发编程专家 Paul E. McKenney 的经典论文，该论文同时收录在他的著作 *Is Parallel Programming Hard, And, If So, What Can You Do About It?* 附录 C *Why Memory Barriers?* 中。
 
 本文全文翻译该论文。
 
