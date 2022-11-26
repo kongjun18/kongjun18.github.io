@@ -3,7 +3,6 @@ defaultContentLanguage: "zh-cn" # 默认语言为中文
 languageCode: "zh-CN" #　使用中文
 hasCJKLanguage: true # 启用对东亚文字的支持
 title: "孔俊的知识库" # 浏览器标签名
-images: ["/favicon-16x16.webp"]
 theme: "FixIt" # 主题
 summaryLength: 180
 params: # 覆盖默认选项

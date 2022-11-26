@@ -19,6 +19,4 @@ convert2webp() {
 }
 
 images=$(find content -name '*.png' -o -name '*.jpg' -o -name '*.jpeg')
-[[ ! -e "static/alipay.jpg.webp" ]] && cwebp static/alipay.jpg -o static/alipay.jpg.webp
-[[ ! -e "static/wechatpay.png.webp" ]] && cwebp static/wechatpay.png -o static/wechatpay.png.webp
 convert2webp "${images}"
