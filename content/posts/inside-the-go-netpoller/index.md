@@ -754,7 +754,6 @@ func netpollunblock(pd *pollDesc, mode int32, ioready bool) *g {
    }
    ```
 
-```
 ## 轮询 IO 事件
 所有文件描述符都注册到一个 epoll 轮询器上，因此`netpoll()`轮询整个系统中的 IO 事件：
 
