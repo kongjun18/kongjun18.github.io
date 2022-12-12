@@ -1,5 +1,10 @@
 您可以在这里下载所有文章的 PDF 版本
 
+## allocator
+
+<a href="k-and-r-allocator.pdf">致敬经典：K&R allocator 内存分配器</a>
+
+
 ## c
 
 <a href="c-cpp-strict-aliasing.pdf">C/C++ 的严格别名规则</a>
