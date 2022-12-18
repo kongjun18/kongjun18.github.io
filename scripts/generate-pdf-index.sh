@@ -1,4 +1,5 @@
 #!/bin/bash
+# WARNING: This script is deprecated.
 CATEGORIES=public/categories
 ARCHIVES=content/archives
 ARCHIVE_INDEX="${ARCHIVES}/index.md"
