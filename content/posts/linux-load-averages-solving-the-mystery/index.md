@@ -1,6 +1,7 @@
 ---
 title: "【译】拨开 Linux 平均负载的谜团"
 subtitle: "Linux Load Averages: Solving the Mystery"
+aliases: [/posts/linux-load-averages-solving-the-mystery]
 date: 2022-09-27T14:27:44+08:00
 author: "孔俊"
 authorLink: "https://github.com/kongjun18"

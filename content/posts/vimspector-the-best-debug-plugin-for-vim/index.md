@@ -1,6 +1,7 @@
 ---
 title: "Vimspector: 最强 Vim 调试插件"
 date: 2020-05-05T16:14:32+08:00
+aliases: [/posts/vimspector-the-best-debug-plugin-for-vim]
 draft: false
 author: "孔俊"
 authorLink: "https://github.com/kongjun18"

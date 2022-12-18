@@ -1,6 +1,7 @@
 ---
 title: "用 Vim 搭建开发环境"
 date: 2021-03-15T14:53:02+08:00
+aliases: [/posts/setup-development-environment-with-vim]
 draft: false
 author: "孔俊"
 authorLink: "https://github.com/kongjun18"
@@ -472,7 +473,7 @@ nnoremap <silent><leader>T :Leaderf task<CR> "<leader>T 模糊搜索任务
 
 ## 调试
 
-调试一直是 Vim 的弱点，最近 *DAP*（*Debug Adapter Protocol*）的提出带来了一些改变。YouCompleteMe 的主要开发者 puremourning 创建了 [vimspector](https://github.com/puremourning/vimspector)，这是目前最强的 Vim 调试插件，仍处于开发阶段，您如果有兴趣的话可以参考我的博客 [Vim 最强调试插件：vimspector](../vimspector-the-best-debug-plugin-for-vim)。
+调试一直是 Vim 的弱点，最近 *DAP*（*Debug Adapter Protocol*）的提出带来了一些改变。YouCompleteMe 的主要开发者 puremourning 创建了 [vimspector](https://github.com/puremourning/vimspector)，这是目前最强的 Vim 调试插件，仍处于开发阶段，您如果有兴趣的话可以参考我的博客 [Vim 最强调试插件：vimspector](https://www.kongjun18.me/posts/vimspector-the-best-debug-plugin-for-vim)。
 
 ## Git
 

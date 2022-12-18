@@ -1,6 +1,7 @@
 ---
 title: "【译】Go 语言内存模型：2022-06-06 版"
 subtitle: "The Go Memory Model: Version of June 6, 2022"
+aliases: [/posts/the-go-memory-model]
 date: 2022-10-20T11:46:49+08:00
 draft: false
 author: "孔俊"
@@ -51,7 +52,7 @@ Go 语言内存模型在语言层面，保证无数据竞争程序(data-race-fre
 
 处理器层面上，不同处理器的不同的内存一致性模型，例如 x86 的 TSO(Total Store Order)。语言层面的内存一致模型是建立在处理器之上的抽象，使程序员可以忽略处理器的差异，依赖语言提供的内存一致性模型编程。Go 语言为无数据竞争程序提供顺序一致模型的保证，程序员只要确保自己编写的程序没有数据竞争，就可以认为“不论是什么处理器，程序执行都是顺序一致的”。
 
-处理器顺序一致模型可以参考 [lamport](http://lamport.azurewebsites.net/) 的著名论文 [*How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs*](http://lamport.azurewebsites.net/pubs/multi.pdf) 和我的博客 [【译】 如何设计正确运行多进程程序的多核计算机](../how-to-make-a-multiprocessor-computer-that-correctly-executes-multiprocess-programs)。
+处理器顺序一致模型可以参考 [lamport](http://lamport.azurewebsites.net/) 的著名论文 [*How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs*](http://lamport.azurewebsites.net/pubs/multi.pdf) 和我的博客 [【译】 如何设计正确运行多进程程序的多核计算机](https://www.kongjun18.me/posts/how-to-make-a-multiprocessor-computer-that-correctly-executes-multiprocess-programs)。
 
 注意，要区分同步线程执行次序的“同步原语”和保证内存操作可见性的“同步”。前者的目的是限制线程的执行次序，比如使用条件变量让线程 A 等待线程 B 完成某操作；后者的目的是保证内存位置上内存操作的可见性，比如线程 A 可以观察到线程 B 对内存位置 *x* 的写，但不保证线程 A 和 B 的执行次序。
 

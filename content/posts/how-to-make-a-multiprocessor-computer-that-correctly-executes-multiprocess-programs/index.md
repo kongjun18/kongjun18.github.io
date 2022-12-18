@@ -1,6 +1,7 @@
 ---
 title: "【译】 如何设计正确运行多进程程序的多核计算机"
 subtitle: "How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs"
+aliases: [/posts/how-to-make-a-multiprocessor-computer-that-correctly-executes-multiprocess-programs]
 date: 2022-10-09T15:24:14+08:00
 draft: false
 author: "孔俊"

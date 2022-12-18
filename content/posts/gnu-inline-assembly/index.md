@@ -1,6 +1,7 @@
 ---
 title: "GNU C 内联汇编"
 date: 2020-01-24T16:19:13+08:00
+aliases: [/posts/gnu-inline-assembly]
 draft: false
 author: "孔俊"
 authorLink: "https://github.com/kongjun18"

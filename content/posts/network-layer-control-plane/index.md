@@ -1,6 +1,7 @@
 ---
 title: "网络层：控制面板"
 date: 2022-01-01T11:38:14+08:00
+aliases: [/posts/network-layer-control-plane]
 draft: false
 author: "孔俊"
 authorLink: "https://github.com/kongjun18"
