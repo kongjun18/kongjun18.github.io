@@ -1,6 +1,7 @@
 ---
 title: "【译】一种面向多核架构的无锁、缓存高效的共享环形缓冲区"
 subtitle: "A Lock-Free, Cache-Efficient Shared Ring Buffer for Multi-Core Architectures"
+aliases: [/posts/a-lock-free-cache-efficient-shared-ring-buffer-for-multi-core-architectures]
 date: 2022-10-13T22:26:21+08:00
 draft: false
 author: "孔俊"

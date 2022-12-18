@@ -1,6 +1,7 @@
 ---
 title: "【译】Go 语言数据竞争检测器"
 subtitle: "Data Race Detector"
+aliases: [/posts/the-go-data-race-detector]
 date: 2022-10-25T09:43:35+08:00
 draft: false
 author: "孔俊"

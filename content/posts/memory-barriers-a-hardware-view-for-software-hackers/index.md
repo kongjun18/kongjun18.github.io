@@ -1,6 +1,7 @@
 ---
 title: "【译】内存屏障：软件黑客的硬件视角"
 subtitle: "Memory Barriers: a Hardware View for Software Hackers"
+aliases: [/posts/memory-barriers-a-hardware-view-for-software-hackers]
 date: 2022-11-03T11:00:56+08:00
 draft: false
 author: "孔俊"

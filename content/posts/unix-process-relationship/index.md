@@ -1,6 +1,7 @@
 ---
 title: "UNIX 进程关系"
 date: 2021-04-28T15:16:23+08:00
+aliases: [/posts/unix-process-relationship]
 draft: false
 author: "孔俊"
 authorLink: "https://github.com/kongjun18"

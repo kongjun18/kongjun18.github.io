@@ -1,6 +1,7 @@
 ---
 title: "致敬经典：K&R allocator 内存分配器"
 subtitle: ""
+aliases: [/posts/k-and-r-allocator]
 date: 2022-12-12T21:01:48+08:00
 draft: false
 author: "孔俊"
