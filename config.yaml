@@ -41,7 +41,7 @@ params: # 覆盖默认选项
       gravatarEmail: ""
       avatarURL: "/images/avatar.jpg" # 头像图片
       avatarMenu: "about"
-      subtitle: "记录探索的过程" # 头像下的文字
+      subtitle: "主题的晦涩 人生的短暂" # 头像下的文字
   social:
     Github: "kongjun18"
     Email: "kongjun18@outlook.com"
