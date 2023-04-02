@@ -1,4 +1,3 @@
-baseURL: "https://kongjun18.github.io/"
 defaultContentLanguage: "zh-cn" # 默认语言为中文
 languageCode: "zh-CN" #　使用中文
 hasCJKLanguage: true # 启用对东亚文字的支持
@@ -12,7 +11,6 @@ params: # 覆盖默认选项
   defaultTheme: "auto" # FixIt 默认样式为 auto
   gitRepo: "https://github.com/kongjun18/blog" # 源代码 Github 网址
   externalIcon: true # 启用外链
-  autoBookmark: true # 关闭页面时保存阅读进度
   header:
     title:
       name: "孔俊的知识库" # 网址 header 标题
@@ -21,6 +19,7 @@ params: # 覆盖默认选项
     license: '<a rel="license external nofollow noopener noreferrer" href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank">CC BY-NC 4.0</a>'
     since: 2022 # 网站创建时间
   page:
+    autoBookmark: true # 关闭页面时保存阅读进度
     gravatarForce: false
     code:
       maxShownLines: 40
@@ -30,6 +29,21 @@ params: # 覆盖默认选项
       ways:
         wechatpay: "/wechatpay.png"
         alipay: "/alipay.jpg"
+    comment:
+      enable: true
+      giscus:
+        enable: true
+        repo: "kongjun18/kongjun18.github.io"
+        repoId: "R_kgDOICeqmQ"
+        category: "Announcements"
+        categoryId: "DIC_kwDOICeqmc4CVeTb"
+        mapping: "pathname"
+        reactionsEnabled: "1"
+        emitMetadata: "0"
+        inputPosition: "top"
+        lightTheme: "light"
+        darkTheme: "dark_dimmed"
+        lazyLoad: true
   tagcloud:
     enable: true
   author: # 作者信息，用于 archetypes 模版
