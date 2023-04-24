@@ -66,6 +66,34 @@ params: # 覆盖默认选项
     permalink: "https://github.com/kongjun18/blog"
     title: "查看博客源代码"
     position: "left"
+
+  search:
+    enable: true
+    # 搜索引擎的类型 ["lunr", "algolia", "fuse"]
+    type: "fuse"
+    # 文章内容最长索引长度
+    contentLength: 4000
+    # 搜索框的占位提示语
+    placeholder: ""
+    # FixIt 0.2.1 | 新增 最大结果数目
+    maxResultLength: 10
+    # FixIt 0.2.3 | 新增 结果内容片段长度
+    snippetLength: 50
+    # FixIt 0.2.1 | 新增 搜索结果中高亮部分的 HTML 标签
+    highlightTag: "em"
+    # FixIt 0.2.4 | 新增 是否在搜索索引中使用基于 baseURL 的绝对路径
+    absoluteURL: false
+    fuse:
+      # FixIt 0.2.17 | 新增 https://fusejs.io/api/options.html
+      isCaseSensitive: false
+      minMatchCharLength: 2
+      findAllMatches: false
+      location: 0
+      threshold: 0.3
+      distance: 100
+      ignoreLocation: false
+      useExtendedSearch: false
+      ignoreFieldNorm: false
 menu:
   main:
     - identifier: "posts"
@@ -112,3 +140,5 @@ markup:
   tableOfContents:
     endLevel: 4
     startLevel: 2
+outputs:
+  home: ["HTML", "RSS", "JSON"]
