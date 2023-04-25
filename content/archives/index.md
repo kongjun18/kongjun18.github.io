@@ -66,3 +66,7 @@
 ## Command Line
 
 <a href="manage-dotfiles-with-yadm.pdf">使用 yadm 管理点文件</a>
+
+## 瞎折腾
+
+<a href="setup-home-private-cloud.pdf">搭建家庭私有云</a>
