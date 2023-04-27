@@ -51,11 +51,14 @@ params: # 覆盖默认选项
     email: "kongjun18@outlook.com"
     link: "https://github.com/kongjun18"
   home:
+    rss: 10
     profile:
+      enable: true
       gravatarEmail: ""
       avatarURL: "/images/avatar.jpg" # 头像图片
       avatarMenu: "about"
       subtitle: "主题的晦涩 人生的短暂" # 头像下的文字
+      typeit: true
   social:
     Github: "kongjun18"
     Email: "kongjun18@outlook.com"
