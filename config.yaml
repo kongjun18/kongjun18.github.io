@@ -11,6 +11,9 @@ params: # 覆盖默认选项
   defaultTheme: "auto" # FixIt 默认样式为 auto
   gitRepo: "https://github.com/kongjun18/blog" # 源代码 Github 网址
   externalIcon: true # 启用外链
+  ibruce:
+    enable: true
+    enablePost: true
   header:
     title:
       name: "孔俊的知识库" # 网址 header 标题
