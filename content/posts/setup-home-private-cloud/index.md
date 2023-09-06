@@ -299,7 +299,6 @@ LABEL=hdd /home/data/kvm/hdd btrfs subvol=/ 0 0
 
 进入 WebVirtCloud（端口 8080），初始用户名 admin，初始密码 admin。在“计算节点”-->“存储”中配置 ISO 池（/home/data/kvm/iso）和 image 池（/home/data/kvm/image）。
 
-
 ## 共享目录
 
 通过设置共享目录让宿主机和虚拟机共享机械硬盘。编辑 KVM 虚拟机配置文件（也可以在 WebVirtCloud 中编辑 XML 配置）：
@@ -323,7 +322,19 @@ virsh edit --domain 虚拟机名字
 omv       /mnt/omv     9p    trans=virtio   0    0
 ```
 
-重启后发现系统无法挂载，这是因为 systemd unit 之间的依赖有问题。mnt-omv.mount 依赖于 9pnet_virtio 模块，这个模块在 kmod 之后才会加载。所以修改 mnt-omv.mount 文件，在`Unit`中添加`Requires=kmod.service`强制在 kmod 加载后才挂载 mnt-omv。
+重启后发现系统无法挂载，这是因为虚拟机挂载宿主机穿透的磁盘依赖内核的 9p 模块，而这些模块在系统启动时没有被加载。将 9p 相关模块添加到 /etc/initramfs-tools/modules，
+
+```text
+9p
+9pnet
+9pnet_virtio
+```
+
+然后更新 initramfs 和 grub 即可。
+
+```sh
+sudo update-initramfs -u && sudo update-grub
+```
 
 ## 安装配置 Windows10
 
