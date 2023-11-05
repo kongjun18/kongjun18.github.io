@@ -1,7 +1,7 @@
-defaultContentLanguage: "zh-cn" # 默认语言为中文
-languageCode: "zh-CN" #　使用中文
+defaultContentLanguage: "en" # 默认语言为中文
+languageCode: "en" #　使用中文
 hasCJKLanguage: true # 启用对东亚文字的支持
-title: "孔俊的知识库" # 浏览器标签名
+title: "Jun Kong's website" # 浏览器标签名
 theme: "FixIt" # 主题
 permalinks:
   posts: /posts/:year/:month/:day/
@@ -16,7 +16,7 @@ params: # 覆盖默认选项
     enablePost: true
   header:
     title:
-      name: "孔俊的知识库" # 网址 header 标题
+      name: "Jun Kong's website" # 网址 header 标题
       logo: "/logo.svg"
   footer:
     license: '<a rel="license external nofollow noopener noreferrer" href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank">CC BY-NC 4.0</a>'
@@ -50,7 +50,7 @@ params: # 覆盖默认选项
   tagcloud:
     enable: true
   author: # 作者信息，用于 archetypes 模版
-    name: "孔俊"
+    name: "Jun Kong"
     email: "kongjun18@outlook.com"
     link: "https://github.com/kongjun18"
   home:
@@ -70,7 +70,7 @@ params: # 覆盖默认选项
   githubCorner: # 在右上角显示博客 Github 链接
     enable: true
     permalink: "https://github.com/kongjun18/kongjun18.github.io"
-    title: "查看博客源代码"
+    title: "Source Code of This Site"
     position: "left"
 
   search:
@@ -105,35 +105,35 @@ menu:
     - identifier: "posts"
       pre: ""
       post: ""
-      name: "文章"
+      name: "Posts"
       url: "/posts/"
       title: ""
       weight: 1
     - identifier: "categories"
       pre: ""
       post: ""
-      name: "分类"
+      name: "Categories"
       url: "/categories/"
       title: ""
       weight: 2
     - identifier: "tags"
       pre: ""
       post: ""
-      name: "标签"
+      name: "Tags"
       url: "/tags/"
       title: ""
       weight: 3
     - identifier: "archives"
       pre: ""
       post: ""
-      name: "归档"
+      name: "Archives"
       url: "/archives/"
       title: ""
       weight: 4
     - identifier: "about"
       pre: ""
       post: ""
-      name: "关于我"
+      name: "About Me"
       url: "/about/"
       title: ""
       weight: 5
