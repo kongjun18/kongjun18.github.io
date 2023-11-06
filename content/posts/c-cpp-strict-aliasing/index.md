@@ -3,7 +3,7 @@ title: "C/C++ 的严格别名规则"
 date: 2020-01-24T20:21:59+08:00
 aliases: [/posts/c-cpp-strict-aliasing]
 draft: false
-author: "孔俊"
+author: "Jun"
 authorLink: "https://github.com/kongjun18"
 authorEmail: "kongjun18@outlook.com"
 keywords: ["C", "C++"]

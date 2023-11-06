@@ -3,9 +3,10 @@ title: "使用 yadm 管理点文件"
 subtitle: ""
 date: 2023-04-07T21:30:01+08:00
 draft: false
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 description: ""
 keywords: ""
 comment: true

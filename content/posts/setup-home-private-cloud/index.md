@@ -3,9 +3,10 @@ title: "搭建家庭私有云"
 subtitle: ""
 date: 2021-11-24T17:51:57+08:00
 draft: false
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 description: ""
 keywords: ""
 comment: true

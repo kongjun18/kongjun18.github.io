@@ -3,27 +3,27 @@ title: "【译】拨开 Linux 平均负载的谜团"
 subtitle: "Linux Load Averages: Solving the Mystery"
 aliases: [/posts/linux-load-averages-solving-the-mystery]
 date: 2022-09-27T14:27:44+08:00
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 description: ""
 keywords: ""
 comment: false
 weight: 0
 
 tags:
-- Linux
+  - Linux
 categories:
-- Linux
+  - Linux
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-
-- name: featured-image-preview
-  src: images/featured-image.webp
+  - name: featured-image-preview
+    src: images/featured-image.webp
 
 toc:
   enable: true
@@ -38,9 +38,9 @@ repost:
   url: ""
 ---
 
-平均负载（*load averages*）是一个很关键的指标——我所在的公司基于平均负载和其他指标，花费数百万去自动伸缩云实例——但在 Linux 上存在许多和平均负载相关的谜题。Linux 平均负载不仅追踪运行态（*runnable*）任务，也追踪处于不可中断休眠状态（*uninterruptible sleep state*）的任务。为什么？从没有人给我解释过。在这篇文章中，我将解决这个谜团，并总结平均负载以供他人参考。
+平均负载（_load averages_）是一个很关键的指标——我所在的公司基于平均负载和其他指标，花费数百万去自动伸缩云实例——但在 Linux 上存在许多和平均负载相关的谜题。Linux 平均负载不仅追踪运行态（_runnable_）任务，也追踪处于不可中断休眠状态（_uninterruptible sleep state_）的任务。为什么？从没有人给我解释过。在这篇文章中，我将解决这个谜团，并总结平均负载以供他人参考。
 
-Linux 平均负载是“系统负载（*system load averages*）”，它通过系统中可运行的和不可中断睡眠的平均线程数量，来表征运行中的线程（任务）对系统资源的需求。平均负载衡量需求，这可能大于系统中正在处理的需求。大多数工具展示 1、5、15 分钟平均负载：
+Linux 平均负载是“系统负载（_system load averages_）”，它通过系统中可运行的和不可中断睡眠的平均线程数量，来表征运行中的线程（任务）对系统资源的需求。平均负载衡量需求，这可能大于系统中正在处理的需求。大多数工具展示 1、5、15 分钟平均负载：
 
 ```shell
 $ uptime
@@ -68,16 +68,16 @@ $ cat /proc/loadavg
 
 ## 历史
 
-最初的平均负载只表征对 CPU 的需求：平均负载是正在运行以及等待运行的进程数。1973 年 8 月的 [RFC 546](https://tools.ietf.org/html/rfc546) *TENEX Load Averages* 定义了平均负载：
+最初的平均负载只表征对 CPU 的需求：平均负载是正在运行以及等待运行的进程数。1973 年 8 月的 [RFC 546](https://tools.ietf.org/html/rfc546) _TENEX Load Averages_ 定义了平均负载：
 
 > [1] The TENEX load average is a measure of CPU demand. The load
->  average is an average of the number of runnable processes over a given
->  time period. For example, an hourly load average of 10 would mean
->  that (for a single CPU system) at any time during that hour one could
->  expect to see 1 process running and 9 others ready to run (i.e., not
->  blocked for I/O) waiting for the CPU.
+> average is an average of the number of runnable processes over a given
+> time period. For example, an hourly load average of 10 would mean
+> that (for a single CPU system) at any time during that hour one could
+> expect to see 1 process running and 9 others ready to run (i.e., not
+> blocked for I/O) waiting for the CPU.
 >
-> ------------------------------------------------------------------------
+> ---
 >
 > [1] TENEX 平均负载是衡量 CPU 需求量的指标。平均负载是一段时间内可运行进程
 > 的平均数量。比如，一小时平均负载为 10 可能意味着（对于一个单 CPU 系统），
@@ -125,7 +125,7 @@ Linux 也硬编码 1、5 和 15 分钟常量。
 
 ## 三个数字
 
-这三个数字是 1、5、15 分钟平均负载。实际上，平均负载并不是平均值，也不是 1、5、15 分钟内的负载值。就像我们从源代码看到的那样，1、5、15 分钟只是公式中的常量，用来计算每 5 秒负载的指数阻尼移动和（*exponentially-damped moving sum*）。计算出的 1、5、15 分钟平均负载所反映的负载远超 1、5、15 分钟。
+这三个数字是 1、5、15 分钟平均负载。实际上，平均负载并不是平均值，也不是 1、5、15 分钟内的负载值。就像我们从源代码看到的那样，1、5、15 分钟只是公式中的常量，用来计算每 5 秒负载的指数阻尼移动和（_exponentially-damped moving sum_）。计算出的 1、5、15 分钟平均负载所反映的负载远超 1、5、15 分钟。
 
 如果你有一个空闲的系统，然后运行一个单线程 CPU 密集型负载（一个死循环的单线程），60 秒后一分钟平均负载会是多少？如果它只是一个平均值，那它应该是 1.0。这里是一个实验，结果如下：
 
@@ -135,13 +135,14 @@ Linux 也硬编码 1、5 和 15 分钟常量。
 
 > **译者注**
 >
-> 指数阻尼移动和（*exponentially-damped moving sum*）是一种数学方法，经常用来处理和时间相关的数据。它用于估计变量的局部均值，使得变量的当前值与一段时间内的历史取值有关。从几何上看，它使得曲线更加平滑。
+> 指数阻尼移动和（_exponentially-damped moving sum_）是一种数学方法，经常用来处理和时间相关的数据。它用于估计变量的局部均值，使得变量的当前值与一段时间内的历史取值有关。从几何上看，它使得曲线更加平滑。
 >
 > 维基百科 [Exponential smoothing](https://en.wikipedia.org/wiki/Exponential_smoothing) 中的公式如下，$\alpha$ 称为平滑因子：
 >
 > $$
 > s_0=x_0
 > $$
+>
 > $$
 > s_t=\alpha x_t+(1-\alpha)s_{t-1}, t>0
 > $$
@@ -187,7 +188,7 @@ Linux 也硬编码 1、5 和 15 分钟常量。
 
 ## Linux 不可中断任务
 
-平均负载第一次出现在 Linux 时，它和其他操作系统中的平均负载一样反映对 CPU 的需求。后续 Linux 版本的平均负载不仅包括运行态的任务，还包括在不可中断（*uninterruptible*）状态（`TASK_UNINTERRUPTIBLE`或`nr_uninterruptible`）的任务。此状态通常由希望避免被信号中断的代码使用，包括阻塞于磁盘 IO 或某些锁的任务。你可能之前就见过它们，它们在`ps`和`top`命令中展示为 D 状态。ps(1) man page 称它为”不可中断睡眠（通常是由于 IO 操作）”。
+平均负载第一次出现在 Linux 时，它和其他操作系统中的平均负载一样反映对 CPU 的需求。后续 Linux 版本的平均负载不仅包括运行态的任务，还包括在不可中断（_uninterruptible_）状态（`TASK_UNINTERRUPTIBLE`或`nr_uninterruptible`）的任务。此状态通常由希望避免被信号中断的代码使用，包括阻塞于磁盘 IO 或某些锁的任务。你可能之前就见过它们，它们在`ps`和`top`命令中展示为 D 状态。ps(1) man page 称它为”不可中断睡眠（通常是由于 IO 操作）”。
 
 添加了不可中断状态意味着 Linux 平均工作负载会因为磁盘（或 NFS）IO 增大，而不只是 CPU 需求。对于任何熟悉其他操作系统上的衡量“对 CPU 需求”的平均负载的人来说，为什么 Linux 平均负载包括这个状态是第一个令人迷惑的问题。
 
@@ -199,11 +200,11 @@ Linux 也硬编码 1、5 和 15 分钟常量。
 
 弄清楚为什么平均负载的含义在 Linux 中发生了变化很简单，阅读 Linux 相关文件的 Git 提交记录和变更描述即可。我检查了 [loadavg.c](https://github.com/torvalds/linux/commits/master/kernel/sched/loadavg.c) 的提交记录，但修改了平均负载含义的提交早于这个文件，loadavg.c 是从更古老的文件中的代码创建的。我还检查了别的文件，但是这条路更加艰难，这些代码分布在不同的文件中。为了走捷径，我在整个 Linux github 代码仓库上执行`git log -p`，在足足 4GB 文本中从后往前寻找这些代码第一次出现的地方。然而，这又是一条死胡同。Linux 代码库最早的记录也只能追溯到 2005 年，那一年 Linus 导入了 Linux 2.6.12-rc2 版本，但我要找的修改早于这一版本。
 
-存在许多 Linux 历史版本的代码仓库（[这个](https://git.kernel.org/pub/scm/linux/kernel/git/tglx/history.git) 和 [这个](https://kernel.googlesource.com/pub/scm/linux/kernel/git/nico/archive/)），但是里面也没有我想找变更描述。为了最起码弄清楚这个变化是什么时候引入的，我搜索了 [kernel.org](https://www.kernel.org/pub/linux/kernel/Historic/v0.99/) 上的归档（*tarball*），发现在 Linux 0.99.15 修改了平均负载的含义，0.99.13 没有修改，但 0.99.14 版本丢失了。我又从别的地方发现了这一点，确认这个变化由 1993 年 11 月的 Linux 0.99 patchlevel 14 引入。我希望 Linus 写的 0.99.14 发版公告能解释这个变化，但是这也是死胡同。
+存在许多 Linux 历史版本的代码仓库（[这个](https://git.kernel.org/pub/scm/linux/kernel/git/tglx/history.git) 和 [这个](https://kernel.googlesource.com/pub/scm/linux/kernel/git/nico/archive/)），但是里面也没有我想找变更描述。为了最起码弄清楚这个变化是什么时候引入的，我搜索了 [kernel.org](https://www.kernel.org/pub/linux/kernel/Historic/v0.99/) 上的归档（_tarball_），发现在 Linux 0.99.15 修改了平均负载的含义，0.99.13 没有修改，但 0.99.14 版本丢失了。我又从别的地方发现了这一点，确认这个变化由 1993 年 11 月的 Linux 0.99 patchlevel 14 引入。我希望 Linus 写的 0.99.14 发版公告能解释这个变化，但是这也是死胡同。
 
 > "Changes to the last official release (p13) are too numerous to mention (or even to remember)..." – Linus
 >
-> -------------------------------------------------------------------------------------------------------------
+> ---
 >
 > “对上一个正式版本 (p13) 的更改太多了，无法提及（甚至无法记住）......” – Linus
 
@@ -215,7 +216,7 @@ Linux 也硬编码 1、5 和 15 分钟常量。
 > effecitvely I accidently destroyed the current set of archives (ah
 > whoops)."
 >
-> ----------------------------------------------------------------------------------------
+> ---
 >
 > 在扩容的过程中我不小心删除了一部分归档（哎呀）
 
@@ -223,7 +224,7 @@ Linux 也硬编码 1、5 和 15 分钟常量。
 
 ## 不可中断状态的起源
 
-我最后很幸运地在 [oldlinux.org](http://oldlinux.org/Linux.old/mail-archive/) 找到一封 1993 年的压缩过的邮件中发现了这个变更（*change*），这封邮件如下：
+我最后很幸运地在 [oldlinux.org](http://oldlinux.org/Linux.old/mail-archive/) 找到一封 1993 年的压缩过的邮件中发现了这个变更（_change_），这封邮件如下：
 
 ```
 From: Matthias Urlichs <urlichs@smurf.sub.org>
@@ -275,11 +276,11 @@ Schleiermacherstra_e 12  \  Unix+Linux+Mac     | Phone: ...please use email.
 
 这封邮件证明了平均负载的改变确实是为了反映对其它系统资源的需求，而不仅仅对 CPU。Linux 把它从“CPU 平均负载”改成了“系统平均负载”。
 
-他（Matthias Urlichs）举的使用低速交换磁盘（*slow swap disk*）的例子很有道理：降低系统性能，系统上的需求（通过估计正在运行和排队的任务数）应该增加。然而，因为平均负载只追踪运行态的任务，不追踪被换出的任务，平均负载反而会降低。Matthias 认为这不符合直觉，所以他修了这个 bug。
+他（Matthias Urlichs）举的使用低速交换磁盘（_slow swap disk_）的例子很有道理：降低系统性能，系统上的需求（通过估计正在运行和排队的任务数）应该增加。然而，因为平均负载只追踪运行态的任务，不追踪被换出的任务，平均负载反而会降低。Matthias 认为这不符合直觉，所以他修了这个 bug。
 
 ## 今天的不可中断状态
 
-但是，Linux 平均负载是否有时会高到超过磁盘 I/O 可以解释的程度？是的，尽管我猜测这是因为现在存在许多在 1993 年不存在的使用`TASK_UNINTERRUPTIBLE`的代码路径。Linux 0.99.14 只有 13 处代码直接设置`TASK_UNINTERRUPTIBLE`或`TASK_SWAPPING`（后续版本移除了“交换中”状态）。今天，Linux 4.12 中有接近 400 处代码设置`TASK_UNINTERRUPTIBLE`，比如一些锁原语（*lock primitives*）。其中有些代码路径可能被不应该包含在平均负载中。下一次我发现平均负载过高，我会查看是否是这种情况以及能否修复它。
+但是，Linux 平均负载是否有时会高到超过磁盘 I/O 可以解释的程度？是的，尽管我猜测这是因为现在存在许多在 1993 年不存在的使用`TASK_UNINTERRUPTIBLE`的代码路径。Linux 0.99.14 只有 13 处代码直接设置`TASK_UNINTERRUPTIBLE`或`TASK_SWAPPING`（后续版本移除了“交换中”状态）。今天，Linux 4.12 中有接近 400 处代码设置`TASK_UNINTERRUPTIBLE`，比如一些锁原语（_lock primitives_）。其中有些代码路径可能被不应该包含在平均负载中。下一次我发现平均负载过高，我会查看是否是这种情况以及能否修复它。
 
 我发邮件给 Matthias，问他 24 年后怎么看待平均负载含义的变化。他一个小时后回复了我（就像我 [Twitter](https://twitter.com/brendangregg/status/891716419892551680) 上提到的那样）：
 
@@ -290,7 +291,7 @@ Schleiermacherstra_e 12  \  Unix+Linux+Mac     | Phone: ...please use email.
 > extremely sluggish but only have a TASK_RUNNING average of 0.1, which
 > doesn't help anybody."
 >
-> ---------------------------------------------------------------------
+> ---
 >
 > 平均负载的意义在于给出一个从用户侧看来可以表示系统有多繁忙的数值。TASK_UNINTERRUPTIBLE （也许）意味着进程正在等待磁盘读取之类的会增加系统负载的事件。一个磁盘 IO 密集型系统可能非常慢，但只考虑 TASK_RUNNING 的平均负载却只有 0.1，这对任何人都没帮助。
 
@@ -298,7 +299,7 @@ Schleiermacherstra_e 12  \  Unix+Linux+Mac     | Phone: ...please use email.
 
 Matthias 仍然认为这是有道理的，至少在当年`TASK_UNINTERRUPTIBLE`的语义下是有道理的。
 
-但是今天的`TASK_UNINTERRUPTIBLE`匹配更多的东西（**译者注**：指有更多设置`TASK_UNINTERRUPTIBLE`的代码路径）。我们应该把平均负载修改为对 CPU 和磁盘的需求吗？Linux 调度器维护者 Peter Zijstra 给了我一个聪明的方案：将`task_struct->in_iowait`而非`TASK_UNINTERRUPTIBLE`包含在平均负载中，以便让它更匹配磁盘 IO。这种方案带来了其他问题。这真的是我们想要的吗？我们应该用线程的需求衡量对系统资源的需求，还是用对物理资源的需求来衡量？如果是前者，等待非中断的锁（*uninterruptible lock*）应该被算进平均负载中，线程需要这些资源，系统不是空闲状态。所以，Linux 平均负载可能已经按我们期待的那样工作。
+但是今天的`TASK_UNINTERRUPTIBLE`匹配更多的东西（**译者注**：指有更多设置`TASK_UNINTERRUPTIBLE`的代码路径）。我们应该把平均负载修改为对 CPU 和磁盘的需求吗？Linux 调度器维护者 Peter Zijstra 给了我一个聪明的方案：将`task_struct->in_iowait`而非`TASK_UNINTERRUPTIBLE`包含在平均负载中，以便让它更匹配磁盘 IO。这种方案带来了其他问题。这真的是我们想要的吗？我们应该用线程的需求衡量对系统资源的需求，还是用对物理资源的需求来衡量？如果是前者，等待非中断的锁（_uninterruptible lock_）应该被算进平均负载中，线程需要这些资源，系统不是空闲状态。所以，Linux 平均负载可能已经按我们期待的那样工作。
 
 为了更好地理解非中断代码路径，我想找一个办法测量他们。我们来看一个不同的例子，计算花在非中断代码路径上的时间，然后看看这一切是否讲得通。
 
@@ -331,10 +332,9 @@ Matthias 仍然认为这是有道理的，至少在当年`TASK_UNINTERRUPTIBLE`�
 
 这里有一个更有意思的例子，这次观测耗时 10 秒（[SVG](out.offcputime_unint01.svg)）：
 
-
 <object data="images/out.offcputime_unint01.svg" type="image/svg+xml" alt="Kernel Uninterruptible Off-CPU Flame Graph (10 secs)" data-align="center"> </object>
 
-右边宽的调用栈表示`systemd-journal`在`proc_pid_cmdline_read()`（读取 /proc/PID/cmdline）中阻塞并为平均负载贡献了 0.07（732ms/10s）。左边有一个更宽的页错误（*page fault*）调用栈，结束于`rwsem_down_read_failed`，为平均负载贡献了 (2307ms+694ms)/1s = 0.23。我已经用火焰图搜索功能把这两个帧高亮为粉红色。
+右边宽的调用栈表示`systemd-journal`在`proc_pid_cmdline_read()`（读取 /proc/PID/cmdline）中阻塞并为平均负载贡献了 0.07（732ms/10s）。左边有一个更宽的页错误（_page fault_）调用栈，结束于`rwsem_down_read_failed`，为平均负载贡献了 (2307ms+694ms)/1s = 0.23。我已经用火焰图搜索功能把这两个帧高亮为粉红色。
 
 > **译者注**
 >
@@ -358,7 +358,7 @@ Matthias 仍然认为这是有道理的，至少在当年`TASK_UNINTERRUPTIBLE`�
 
 ## 分解 Linux 平均负载
 
-可以把 Linux 平均负载值完全分解开吗？这里有一个例子：在一个空闲的 8 核系统上，我执行`tar`来归档（*archive*）许多未缓存的文件。这花了几分钟，大时间被阻塞在磁盘读取上。这里是从不同终端窗口收集到的统计数据：
+可以把 Linux 平均负载值完全分解开吗？这里有一个例子：在一个空闲的 8 核系统上，我执行`tar`来归档（_archive_）许多未缓存的文件。这花了几分钟，大时间被阻塞在磁盘读取上。这里是从不同终端窗口收集到的统计数据：
 
 ```shell
 terma$ pidstat -p `pgrep -x tar` 60
@@ -404,11 +404,8 @@ termc$ uptime
 > 分别解释上面的计算过程：
 >
 > - 从 pidstat 看到 tar 运行在 CPU 3 上，有 32.62% 的时间是 CPU 时间，即 tar CPU 时间让平均负载增加了 0.33。
->
 > - 从火焰图看是 0.69，0.67 是作者的推测。火焰图中 tar 帧用时 41164ms，占取样时间范围（60s) 的 0.686，约等于 0.69。即 tar 不可中断状态让平均负载增加了 0.69。
->
 > - iostat 显示的 CPU 时间比例是整个系统（8核）的，pidstat 显示的是一个核的。因此 pidstat 显示的 32.62% 对应整个系统的 4.0775%，iostat user+system 为 4.57%，总 CPU 时间减去 tar CPU 时间得到 4.077%，约等于 0.04。
->
 > - kworker 是一种专用于中断处理的内核线程。火焰图中两个帧占取样时间比例为 (3684ms+3102ms)/60s = 0.11。
 
 上面加起来总共只有 1.15，仍然缺了 0.04。其中一些可能是舍入或测量误差，但大部分是因为平均工作负载是指数阻尼移动和，而这里使用的其他平均值（pidstat、iostat）是普通的平均值。1.19 之前的平均负载是 1.25，这说明有什么东西在拖累平均负载的增长。到底是多少呢？从上面的图片可以看到，在 60s 时，一分钟平均负载值有 62% 来自于该时刻，其余来自历史值。所以 0.62 x 1.15 + 0.38 x 1.25 = 1.18。这和 uptime 报告的平均负载非常接近。
@@ -424,7 +421,6 @@ termc$ uptime
 > 尽管如此，作者的意图很清晰：
 >
 > - 平均工作负载是计算得到的
->
 > - 其他工具报告的指标未必和平均工作负载匹配
 
 这个系统中只有一个线程（tar）和很少的其它线程（内核 worker 线程）在工作，1 分钟平均负载为 1.19，这是讲的通的。如果只测量”CPU 平均负载“，系统的平均负载为 0.37（从 mpstat 的报告中推测），这只对 CPU 资源是正确的，这掩盖了有多个线程要工作的事实。
@@ -459,8 +455,6 @@ termc$ uptime
 
 因为 Linux 系统平均负载包含了不同的资源，语义更加模糊，所以你不能简单地用它除以 CPU 数。比较平均负载的相对大小更加有用：如果你知道系统在平均负载为 20 时运行良好，此时系统平均负载为 40，那你就该去研究别的指标弄清楚到底发生了什么。
 
-
-
 ## 更好的指标
 
 当 Linux 平均负载增大时，你只知道任务对系统资源的需求增大了，但不知道究竟是哪些需求。可以用别的指标弄清楚这一切，比如对于 CPU：
@@ -477,7 +471,7 @@ termc$ uptime
 
 前两个是利用率指标，后面三个是饱和度指标。利用率指标可以用来标示工作负载类别，饱和度指标对定位性能问题非常有用。最好的 CPU 饱和度指标是运行队列（或调度器）延迟，即一个可运行的任务/线程等待被调度的时间。这些指标允许你估计性能问题的严重程度，比如一个线程花在调度器延迟上的时间占比。运行队列长度可以表明是否有问题，但是很难用来估计问题有多严重。
 
-schedstats 是 Linux 4.6 的一个可调整参数，默认关闭。延迟记账（*delay account*）暴露了相同的调度器延迟指标，[cpustat](https://github.com/uber-common/cpustat) 就使用了它。我建议把它添加到 [htop](https://github.com/hishamhm/htop/issues/665) 中以方便用户。简单地说，从文档未记录的 /proc/sched_debug 中获取等待时间（调度器延迟）指标：
+schedstats 是 Linux 4.6 的一个可调整参数，默认关闭。延迟记账（_delay account_）暴露了相同的调度器延迟指标，[cpustat](https://github.com/uber-common/cpustat) 就使用了它。我建议把它添加到 [htop](https://github.com/hishamhm/htop/issues/665) 中以方便用户。简单地说，从文档未记录的 /proc/sched_debug 中获取等待时间（调度器延迟）指标：
 
 ```shell
 $ awk 'NF > 7 { if ($1 == "task") { if (h == 0) { print; h=1 } } else { print } }' /proc/sched_debug
@@ -513,8 +507,6 @@ $ awk 'NF > 7 { if ($1 == "task") { if (h == 0) { print; h=1 } } else { print } 
 有许多更清晰的指标，但不意味着平均负载就完全没用了。它与其他指标一起成功地用于云计算微服务的扩展策略。这有助于微服务响应不同类型的负载增大，比如 CPU或者磁盘 IO。错误的扩容（费钱）总比不扩容（失去客户）强，所以拓展策略应该考虑更多的征兆。如果扩容得太多了，我们会在第二天调试。
 
 我使用平均负载的一大原因是它可以展示历史信息。如果我在登录一个性能很差的云上实例，看到 1 分钟平均负载远低于 15 分钟平均负载。这是一个大线索，告诉我性能问题早已发生。我只扫一眼平均负载，就去观察其他指标。
-
-
 
 ## 总结
 

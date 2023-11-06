@@ -3,9 +3,10 @@ title: "用 Vim 搭建开发环境"
 date: 2021-03-15T14:53:02+08:00
 aliases: [/posts/setup-development-environment-with-vim]
 draft: false
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 keywords: "Vim"
 comment: true
 weight: 0

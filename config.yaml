@@ -1,7 +1,7 @@
 defaultContentLanguage: "en" # 默认语言为中文
 languageCode: "en" #　使用中文
 hasCJKLanguage: true # 启用对东亚文字的支持
-title: "Jun Kong's website" # 浏览器标签名
+title: "Jun's website" # 浏览器标签名
 theme: "FixIt" # 主题
 permalinks:
   posts: /posts/:year/:month/:day/
@@ -16,7 +16,7 @@ params: # 覆盖默认选项
     enablePost: true
   header:
     title:
-      name: "Jun Kong's website" # 网址 header 标题
+      name: "Jun's website" # 网址 header 标题
       logo: "/logo.svg"
   footer:
     license: '<a rel="license external nofollow noopener noreferrer" href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank">CC BY-NC 4.0</a>'
@@ -50,9 +50,9 @@ params: # 覆盖默认选项
   tagcloud:
     enable: true
   author: # 作者信息，用于 archetypes 模版
-    name: "Jun Kong"
-    email: "kongjun18@outlook.com"
+    name: "Jun"
     link: "https://github.com/kongjun18"
+    avatar: "/images/avatar.jpg"
   home:
     rss: 10
     profile:

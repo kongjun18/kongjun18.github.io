@@ -2,9 +2,10 @@
 title: "深入剖析 Go 语言运行时：IO 轮询器"
 date: 2022-11-21T17:42:25+08:00
 aliases: [/posts/inside-the-go-netpoller]
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 license: "All rights reserved"
 keywords: []
 comment: true

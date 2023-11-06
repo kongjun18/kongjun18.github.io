@@ -7,9 +7,10 @@ aliases:
   ]
 date: 2022-10-09T15:24:14+08:00
 draft: false
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 keywords: ["Concurrency", "Computer Architecture"]
 comment: true
 weight: 0

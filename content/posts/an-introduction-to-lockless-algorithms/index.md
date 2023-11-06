@@ -3,9 +3,10 @@ title: "【译】无锁算法导论"
 subtitle: ""
 date: 2023-07-14T21:50:32+08:00
 draft: false
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 description: ""
 keywords: ""
 comment: true

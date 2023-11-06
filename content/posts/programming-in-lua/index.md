@@ -3,9 +3,10 @@ title: "Lua 语言简明教程"
 date: 2022-01-02T15:31:31+08:00
 aliases: [/posts/programming-in-lua]
 draft: false
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 keywords: "Lua"
 comment: false
 weight: 0

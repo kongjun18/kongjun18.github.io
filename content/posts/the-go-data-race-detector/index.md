@@ -4,9 +4,10 @@ subtitle: "Data Race Detector"
 aliases: [/posts/the-go-data-race-detector]
 date: 2022-10-25T09:43:35+08:00
 draft: false
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 description: ""
 keywords: ["Concurrency", "Go", "Data Race"]
 comment: true

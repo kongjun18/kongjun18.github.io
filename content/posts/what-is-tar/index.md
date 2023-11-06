@@ -2,27 +2,28 @@
 title: "什么是 tar"
 date: 2022-09-21T17:42:25+08:00
 aliases: [/posts/what-is-tar]
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 license: "All rights reserved"
 keywords: ["tar", "Linux"]
 comment: true
 weight: 0
 
 tags:
-- Linux
+  - Linux
 categories:
-- Linux
+  - Linux
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 resources:
-- name: featured-image
-  src: images/featured-image.webp
-- name: featured-image-preview
-  src: images/featured-image.webp
+  - name: featured-image
+    src: images/featured-image.webp
+  - name: featured-image-preview
+    src: images/featured-image.webp
 
 toc:
   enable: true
@@ -37,7 +38,7 @@ repost:
   url: ""
 ---
 
-tar 是 *tape archive* 的简称，即“磁带归档”，最早出现在 1979 年的第 UNIX v7。磁带上的数据存储为可能不相邻的变长数据块，浪费了大量块与块之间的空间。向磁盘、网络传输数据时，传输一大块的效率远高于多个小块，因此程序员使用 tar 将磁带上的数据打包在一起，物理上存储在连续的、固定大小的块上以提高性能。
+tar 是 _tape archive_ 的简称，即“磁带归档”，最早出现在 1979 年的第 UNIX v7。磁带上的数据存储为可能不相邻的变长数据块，浪费了大量块与块之间的空间。向磁盘、网络传输数据时，传输一大块的效率远高于多个小块，因此程序员使用 tar 将磁带上的数据打包在一起，物理上存储在连续的、固定大小的块上以提高性能。
 
 tar 打包出来的文件称为为 tarball。一般会使用某种压缩算法压缩 tarball，压缩后的 tarball 后缀一般为`tar.<compress-algorithm>`，比如 gzip 压缩的 tarball 名为`tar.gz`，zstd 压缩的 tarball 名为`tar.zstd`。
 
@@ -57,7 +58,7 @@ tarball 包含一系列文件对象，文件对象在物理上存储为一个或
 
 最初的 UNIX V7 tar 不要求块末尾的*填充（padding）*为零，但现代实现一般都把填充内容设置为空字符`\0`。
 
-大体上 tar 的格式是这样的，pax/gnu 等格式在此基础上有一些拓展，比如 pax 格式中将 *extend header data* 也存放在文件对象的 data 部分，所以 data 部分可能不仅仅是原始的文件数据。
+大体上 tar 的格式是这样的，pax/gnu 等格式在此基础上有一些拓展，比如 pax 格式中将 _extend header data_ 也存放在文件对象的 data 部分，所以 data 部分可能不仅仅是原始的文件数据。
 
 ### v7
 
@@ -130,15 +131,15 @@ $ tar -tv -f hardlink.tar
 
 ### UStar
 
-UStar(Unix Standard TAR) 是 POSIX 标准化（POSIX.1-1988 and POSIX.1-2001）的格式，GNU tar 文档称为基础 tar 格式（*basic tar format*），通常现代 tar 都支持此格式。
+UStar(Unix Standard TAR) 是 POSIX 标准化（POSIX.1-1988 and POSIX.1-2001）的格式，GNU tar 文档称为基础 tar 格式（_basic tar format_），通常现代 tar 都支持此格式。
 
 UStar 在 v7 的基础上，拓展了 header，支持更多文件类型，添加了所有者名字，增大了文件名最大长度。
 
 | Field offset | Field size | Field                                         |
 | ------------ | ---------- | --------------------------------------------- |
-| 0            | 156        | *(Several fields, same as in the old format)* |
+| 0            | 156        | _(Several fields, same as in the old format)_ |
 | 156          | 1          | Type flag                                     |
-| 157          | 100        | *(Same field as in the old format)*           |
+| 157          | 100        | _(Same field as in the old format)_           |
 | 257          | 6          | UStar indicator "ustar" then NUL              |
 | 263          | 2          | UStar version "00"                            |
 | 265          | 32         | Owner user name                               |
@@ -149,22 +150,22 @@ UStar 在 v7 的基础上，拓展了 header，支持更多文件类型，添加
 
 v7 中的 link indicator 在 UStar 中拓展为 type flag，可以取以下值：
 
-| Value                                                                                                                              | Meaning                                                                                  |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| '0' or ([ASCII](https://en.wikipedia.org/wiki/ASCII "ASCII") [NUL](https://en.wikipedia.org/wiki/Null_character "Null character")) | Normal file                                                                              |
-| '1'                                                                                                                                | [Hard link](https://en.wikipedia.org/wiki/Hard_link "Hard link")                         |
-| '2'                                                                                                                                | [Symbolic link](https://en.wikipedia.org/wiki/Symbolic_link "Symbolic link")             |
-| '3'                                                                                                                                | [Character special](https://en.wikipedia.org/wiki/Device_file "Device file")             |
-| '4'                                                                                                                                | [Block special](https://en.wikipedia.org/wiki/Device_file "Device file")                 |
-| '5'                                                                                                                                | [Directory](https://en.wikipedia.org/wiki/Directory_(computing) "Directory (computing)") |
-| '6'                                                                                                                                | [FIFO](https://en.wikipedia.org/wiki/Named_pipe "Named pipe")                            |
-| '7'                                                                                                                                | Contiguous file                                                                          |
-| 'g'                                                                                                                                | Global extended header with meta data (POSIX.1-2001)                                     |
-| 'x'                                                                                                                                | Extended header with meta data for the next file in the archive (POSIX.1-2001)           |
-| 'A'–'Z'                                                                                                                            | Vendor specific extensions (POSIX.1-1988)                                                |
-| All other values                                                                                                                   | Reserved for future standardization                                                      |
+| Value                                                                                                                              | Meaning                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| '0' or ([ASCII](https://en.wikipedia.org/wiki/ASCII "ASCII") [NUL](https://en.wikipedia.org/wiki/Null_character "Null character")) | Normal file                                                                                |
+| '1'                                                                                                                                | [Hard link](https://en.wikipedia.org/wiki/Hard_link "Hard link")                           |
+| '2'                                                                                                                                | [Symbolic link](https://en.wikipedia.org/wiki/Symbolic_link "Symbolic link")               |
+| '3'                                                                                                                                | [Character special](https://en.wikipedia.org/wiki/Device_file "Device file")               |
+| '4'                                                                                                                                | [Block special](https://en.wikipedia.org/wiki/Device_file "Device file")                   |
+| '5'                                                                                                                                | [Directory](<https://en.wikipedia.org/wiki/Directory_(computing)> "Directory (computing)") |
+| '6'                                                                                                                                | [FIFO](https://en.wikipedia.org/wiki/Named_pipe "Named pipe")                              |
+| '7'                                                                                                                                | Contiguous file                                                                            |
+| 'g'                                                                                                                                | Global extended header with meta data (POSIX.1-2001)                                       |
+| 'x'                                                                                                                                | Extended header with meta data for the next file in the archive (POSIX.1-2001)             |
+| 'A'–'Z'                                                                                                                            | Vendor specific extensions (POSIX.1-1988)                                                  |
+| All other values                                                                                                                   | Reserved for future standardization                                                        |
 
- 其中 continuous file 指此文件在存储在磁盘连续的块中，OS 一般不提供这样的接口，因此几乎所有 tar 实现都把忽略此类型，当成一般的文件处理。
+其中 continuous file 指此文件在存储在磁盘连续的块中，OS 一般不提供这样的接口，因此几乎所有 tar 实现都把忽略此类型，当成一般的文件处理。
 
 x 和 g 类型用于 pax 格式，这样的 header 称为 pax header block，其数据是 pax extended header。
 
@@ -172,7 +173,7 @@ x 和 g 类型用于 pax 格式，这样的 header 称为 pax header block，其
 
 前面的 v7、UStar 格式都有很多限制，比如文件名长度有限，无法记录 ACL 信息，无法记录文件 MIME 类型等信息。这些问题可以通过打标签统一解决，比如 ACL 在文件系统层面就是 xattr 而已，在 tar 中自然也可通过打相应标签解决。
 
-pax(*portable archive interchange*) 格式最早由  Sun Microsystems 发明，由 POSIX.1-2001 标准化，GNU tar 文档称指为 POSIX 格式。
+pax(_portable archive interchange_) 格式最早由 Sun Microsystems 发明，由 POSIX.1-2001 标准化，GNU tar 文档称指为 POSIX 格式。
 
 pax 被设计为，凡是支持 UStar 的 tar 实现，都可以处理 pax 格式。具体地说，pax 没有带来任何不兼容的新字段，只是为 UStar header/data 添加了新的语义。pax 分为 pax header block 和 pax extended header 两部分，pax header 是 type flag为 x 或 g 的 UStar header，pax extended header 是拓展的元数据，作为 Ustar 数据存储。
 
@@ -216,7 +217,7 @@ pax extended header 是拓展的头，即拓展的元数据（标签），格式
 
 > **atime**
 >
-> The file access time for the following file(s), equivalent to the value of the *st_atime* member of the **stat** structure for a file, as described by the [*stat*()](https://pubs.opengroup.org/onlinepubs/9699919799/functions/stat.html) function. The access time shall be restored if the process has appropriate privileges required to do so. The format of the <*value*> shall be as described
+> The file access time for the following file(s), equivalent to the value of the _st_atime_ member of the **stat** structure for a file, as described by the [_stat_()](https://pubs.opengroup.org/onlinepubs/9699919799/functions/stat.html) function. The access time shall be restored if the process has appropriate privileges required to do so. The format of the <_value_> shall be as described
 > in [pax Extended Header File Times](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_05).
 >
 > **charset**
@@ -243,27 +244,27 @@ pax extended header 是拓展的头，即拓展的元数据（标签），格式
 > | ISO-IRΔ10646Δ2000ΔUTF-8 | ISO/IEC 10646, UTF-8 encoding |
 > | BINARY                  | None.                         |
 >
-> The encoding is included in an extended header for information only; when *pax* is used as described in POSIX.1-2017, it shall not translate the file data into any other encoding. The **BINARY** entry indicates unencoded binary data.
+> The encoding is included in an extended header for information only; when _pax_ is used as described in POSIX.1-2017, it shall not translate the file data into any other encoding. The **BINARY** entry indicates unencoded binary data.
 >
-> When used in **write** or **copy** mode, it is implementation-defined whether *pax* includes a **charset** extended header record for a file.
+> When used in **write** or **copy** mode, it is implementation-defined whether _pax_ includes a **charset** extended header record for a file.
 >
 > **comment**
 >
-> A series of characters used as a comment. All characters in the <*value*> field shall be ignored by *pax*.
+> A series of characters used as a comment. All characters in the <_value_> field shall be ignored by _pax_.
 >
 > **gid**
 >
-> The group ID of the group that owns the file, expressed as a decimal number using digits from the ISO/IEC 646:1991 standard. This record shall override the *gid* field in the following header block(s). When used in **write** or **copy** mode, *pax* shall include a *gid* extended header record for each file whose group ID is greater than 2097151(octal 7777777).
+> The group ID of the group that owns the file, expressed as a decimal number using digits from the ISO/IEC 646:1991 standard. This record shall override the _gid_ field in the following header block(s). When used in **write** or **copy** mode, _pax_ shall include a _gid_ extended header record for each file whose group ID is greater than 2097151(octal 7777777).
 >
 > **gname**
 >
-> The group of the file(s), formatted as a group name in the group database. This record shall override the *gid* and *gname* fields in the following header block(s), and any *gid* extended header record. When used in **read**, **copy**, or **list** mode, *pax* shall translate the name from the encoding in the header record to the character set appropriate for the group database on the receiving system. If any of the characters cannot be translated, and if neither the **-o** **invalid=UTF-8** option nor the **-o** **invalid=binary** option is specified, the results are
-> implementation-defined. When used in **write** or **copy** mode, *pax* shall include a **gname** extended header record for each file whose group name cannot be represented entirely with the letters and digits of the portable character
+> The group of the file(s), formatted as a group name in the group database. This record shall override the _gid_ and _gname_ fields in the following header block(s), and any _gid_ extended header record. When used in **read**, **copy**, or **list** mode, _pax_ shall translate the name from the encoding in the header record to the character set appropriate for the group database on the receiving system. If any of the characters cannot be translated, and if neither the **-o** **invalid=UTF-8** option nor the **-o** **invalid=binary** option is specified, the results are
+> implementation-defined. When used in **write** or **copy** mode, _pax_ shall include a **gname** extended header record for each file whose group name cannot be represented entirely with the letters and digits of the portable character
 > set.
 >
 > **hdrcharset**
 >
-> The name of the character set used to encode the value field of the **gname**, **linkpath**, **path**, and **uname** *pax* extended header records. The entries in the following table are defined to refer to known standards;
+> The name of the character set used to encode the value field of the **gname**, **linkpath**, **path**, and **uname** _pax_ extended header records. The entries in the following table are defined to refer to known standards;
 > additional names may be agreed between the originator and the recipient.
 >
 > | **<value>**             | **Formal Standard**           |
@@ -278,22 +279,22 @@ pax extended header 是拓展的头，即拓展的元数据（标签），格式
 >
 > **linkpath**
 >
-> The pathname of a link being created to another file, of any type, previously archived. This record shall override the *linkname* field in the following **ustar** header block(s). The following **ustar** header block shall determine the
-> type of link created. If *typeflag* of the following header block is 1, it shall be a hard link. If *typeflag* is 2, it shall be a symbolic link and the **linkpath** value shall be the contents of the symbolic link. The *pax* utility shall
+> The pathname of a link being created to another file, of any type, previously archived. This record shall override the _linkname_ field in the following **ustar** header block(s). The following **ustar** header block shall determine the
+> type of link created. If _typeflag_ of the following header block is 1, it shall be a hard link. If _typeflag_ is 2, it shall be a symbolic link and the **linkpath** value shall be the contents of the symbolic link. The _pax_ utility shall
 > translate the name of the link (contents of the symbolic link) from the
 > encoding in the header to the character set appropriate for
-> the local file system. When used in **write** or **copy** mode, *pax* shall include a **linkpath** extended header record for each link whose pathname cannot be represented entirely with the members of the portable character set other than NUL.
+> the local file system. When used in **write** or **copy** mode, _pax_ shall include a **linkpath** extended header record for each link whose pathname cannot be represented entirely with the members of the portable character set other than NUL.
 >
 > **mtime**
 >
-> The file modification time of the following file(s), equivalent to the value of the *st_mtime* member of the **stat** structure for a file, as described in the [*stat*()](https://pubs.opengroup.org/onlinepubs/9699919799/functions/stat.html) function. This record shall override the *mtime* field in the following header block(s). The modification time shall be restored if the process has appropriate
-> privileges required to do so. The format of the <*value*> shall be as described in [pax Extended Header File Times](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_05).
+> The file modification time of the following file(s), equivalent to the value of the _st_mtime_ member of the **stat** structure for a file, as described in the [_stat_()](https://pubs.opengroup.org/onlinepubs/9699919799/functions/stat.html) function. This record shall override the _mtime_ field in the following header block(s). The modification time shall be restored if the process has appropriate
+> privileges required to do so. The format of the <_value_> shall be as described in [pax Extended Header File Times](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_05).
 >
 > **path**
 >
-> The pathname of the following file(s). This record shall override the *name* and *prefix* fields in the following header block(s). The *pax* utility shall translate the pathname of the file from the encoding in the header to the character set appropriate for the local file system.
+> The pathname of the following file(s). This record shall override the _name_ and _prefix_ fields in the following header block(s). The _pax_ utility shall translate the pathname of the file from the encoding in the header to the character set appropriate for the local file system.
 >
-> When used in **write** or **copy** mode, *pax* shall include a *path* extended header record for each file whose pathname cannot be represented entirely with the members of the portable character set other than NUL.
+> When used in **write** or **copy** mode, _pax_ shall include a _path_ extended header record for each file whose pathname cannot be represented entirely with the members of the portable character set other than NUL.
 >
 > **realtime**.any
 >
@@ -305,15 +306,15 @@ pax extended header 是拓展的头，即拓展的元数据（标签），格式
 >
 > **size**
 >
-> The size of the file in octets, expressed as a decimal number using digits from the ISO/IEC 646:1991 standard. This record shall override the *size* field in the following header block(s). When used in **write** or **copy** mode, *pax* shall include a *size* extended header record for each file with a size value greater than 8589934591 (octal 77777777777).
+> The size of the file in octets, expressed as a decimal number using digits from the ISO/IEC 646:1991 standard. This record shall override the _size_ field in the following header block(s). When used in **write** or **copy** mode, _pax_ shall include a _size_ extended header record for each file with a size value greater than 8589934591 (octal 77777777777).
 >
 > **uid**
 >
-> The user ID of the file owner, expressed as a decimal number using digits from the ISO/IEC 646:1991 standard. This record shall override the *uid* field in the following header block(s). When used in **write** or **copy** mode, *pax* shall include a *uid* extended header record for each file whose owner ID is greater than 2097151 (octal 7777777).
+> The user ID of the file owner, expressed as a decimal number using digits from the ISO/IEC 646:1991 standard. This record shall override the _uid_ field in the following header block(s). When used in **write** or **copy** mode, _pax_ shall include a _uid_ extended header record for each file whose owner ID is greater than 2097151 (octal 7777777).
 >
 > **uname**
 >
-> The owner of the following file(s), formatted as a user name in the user database. This record shall override the *uid* and *uname* fields in the following header block(s), and any *uid* extended header record. When used in **read**, **copy**, or **list** mode, *pax* shall translate the name from the encoding in the header record to the character set appropriate for the user database on the receiving system. If any of the characters cannot be translated, and if neither the **-o** **invalid=UTF-8** option nor the **-o** **invalid=binary** option is specified, the results are implementation-defined. When used in **write** or **copy** mode, *pax* shall include a **uname** extended header record for each file whose user name cannot be represented entirely with the letters and digits of the portable character set.
+> The owner of the following file(s), formatted as a user name in the user database. This record shall override the _uid_ and _uname_ fields in the following header block(s), and any _uid_ extended header record. When used in **read**, **copy**, or **list** mode, _pax_ shall translate the name from the encoding in the header record to the character set appropriate for the user database on the receiving system. If any of the characters cannot be translated, and if neither the **-o** **invalid=UTF-8** option nor the **-o** **invalid=binary** option is specified, the results are implementation-defined. When used in **write** or **copy** mode, _pax_ shall include a **uname** extended header record for each file whose user name cannot be represented entirely with the letters and digits of the portable character set.
 
 ### Old GNU
 
@@ -407,7 +408,9 @@ tar 只是将文件系统中的文件归档起来，不做任何高级的多余�
 ## 实现
 
 ### Go 语言
+
 Go 语言标准库包 archive/tar 实现了 tar，支持 ustar、pax 和 GNU 格式。Go 语言实现屏蔽了部分底层格式的差异，让用户聚焦于关键的 tar 属性。查看`Header`定义就可以发现这一点，定义如下：
+
 ```Go
 type Header struct {
 	// Typeflag is the type of header entry.
@@ -499,7 +502,7 @@ GNU tar 是 GNU/Linux 上默认的 tar 实现，目前默认使用 GNU 格式，
 - [BSD tar](https://www.freebsd.org/cgi/man.cgi?query=tar)
 - [tar(1) - Linux manual page](https://man7.org/linux/man-pages/man1/tar.1.html)
 - [tar - Dereferencing hard links - Unix &Linux Stack Exchange](https://unix.stackexchange.com/questions/43037/dereferencing-hard-links)
-- [tar (computing) - Wikipedia](https://en.wikipedia.org/wiki/Tar_(computing))
+- [tar (computing) - Wikipedia](<https://en.wikipedia.org/wiki/Tar_(computing)>)
 - [GNU tar 1.34: 10.2 Security](https://www.gnu.org/software/tar/manual/html_node/Security.html#Security)
 - [GNU tar 1.34: 10.1 Reliability](https://www.gnu.org/software/tar/manual/html_node/Reliability.html#Reliability)
 - [tar package - archive/tar - Go Packages](https://pkg.go.dev/archive/tar@go1.19.1)

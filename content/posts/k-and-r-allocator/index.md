@@ -4,29 +4,30 @@ subtitle: ""
 aliases: [/posts/k-and-r-allocator]
 date: 2022-12-12T21:01:48+08:00
 draft: false
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 description: ""
 keywords: ""
 comment: true
 weight: 0
 
 tags:
-- Allocator
-- C
+  - Allocator
+  - C
 categories:
-- Allocator
+  - Allocator
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
-- name: featured-image-preview
-  src: images/featured-image.png
+  - name: featured-image
+    src: images/featured-image.png
+  - name: featured-image-preview
+    src: images/featured-image.png
 
 toc:
   enable: true
@@ -41,8 +42,7 @@ repost:
   url: ""
 ---
 
-
-k&R allocator 是[Brain Kernighan](https://en.wikipedia.org/wiki/Brian_Kernighan)和 [Dennis Ritchie](https://en.wikipedia.org/wiki/Dennis_Ritchie)  的名著 [*The C Programming Language*](https://en.wikipedia.org/wiki/The_C_Programming_Language) 第 8.7 节中介绍的一个简单 malloc 实现。因为该书被称为 K&R C，这个 malloc 实现也被称为 K&C allocator。
+k&R allocator 是[Brain Kernighan](https://en.wikipedia.org/wiki/Brian_Kernighan)和 [Dennis Ritchie](https://en.wikipedia.org/wiki/Dennis_Ritchie) 的名著 [_The C Programming Language_](https://en.wikipedia.org/wiki/The_C_Programming_Language) 第 8.7 节中介绍的一个简单 malloc 实现。因为该书被称为 K&R C，这个 malloc 实现也被称为 K&C allocator。
 
 K&R allocator 的实现非常简洁，Linux 内核基于 K&R allocator 实现了用于嵌入式系统 slob allocator。见 [slob: introduce the SLOB allocator](https://lwn.net/Articles/157944/)，邮件摘要如下：
 
@@ -55,7 +55,7 @@ fragmentation more than SLAB, so it's only appropriate for small
 systems.
 ```
 
-本文的代码摘抄自 [*The C Programming Language*](https://en.wikipedia.org/wiki/The_C_Programming_Language) 并修改了 C99 语法错误，你可以在这里获取完整代码 [malloc.c](malloc.c)。
+本文的代码摘抄自 [_The C Programming Language_](https://en.wikipedia.org/wiki/The_C_Programming_Language) 并修改了 C99 语法错误，你可以在这里获取完整代码 [malloc.c](malloc.c)。
 
 ## 算法
 
@@ -94,10 +94,11 @@ header 定义为 union，利用成员`x`将 header 对齐到`Align`边界。这�
 ## malloc
 
 分配算法如下：
+
 1. 遍历空闲链表，查找大小不小于目标大小的内存块。
 2. 查找到，则
-	1. 若内存块大小恰好等于目标大小，从空闲链表摘除该内存块并返回。
-	2. 若内存块大小不等于目标大小，分割该内存块并返回目标大小的内存。
+   1. 若内存块大小恰好等于目标大小，从空闲链表摘除该内存块并返回。
+   2. 若内存块大小不等于目标大小，分割该内存块并返回目标大小的内存。
 3. 未查找到，则调用`morecore()`向 OS 申请不小于目标大小的内存并入空闲链表，跳转到 1 重新搜索。
 
 ```c
@@ -152,6 +153,7 @@ static Header *morecore(unsigned nu) {
 ## free
 
 `free()`算法如下：
+
 1. 查找待回收内存块的插入位置。
 2. 将待回收内存块块插入步骤 1 查找到的插入位置。
 3. 合并相邻内存块。
@@ -187,11 +189,12 @@ void free(void *ap) {
 查找到理想的插入位置后，合并相邻内存块即可。
 
 ## 总结
+
 K&R allocator 在算法上没有新奇之处，但是简洁的设计和精简的实现让人记忆犹新。
 
 尤其值得注意的是，逻辑结构可以和物理结构分离。K&R allocator 逻辑上 header 和 block 分离，但物理结构上将 block 起始部分作为 header。
 
-这种设计在 slab allocator 中也有体现，见 Jeff Bonwick 的经典论文 *The Slab Allocator: An Object-Caching Kernel Memory Allocator*。slab allocator 中，分配小对象的 slab 中`kmem_bufctl`和`buf`放到一页，大对象的 slab 中物理结构和逻辑结构相同。
+这种设计在 slab allocator 中也有体现，见 Jeff Bonwick 的经典论文 _The Slab Allocator: An Object-Caching Kernel Memory Allocator_。slab allocator 中，分配小对象的 slab 中`kmem_bufctl`和`buf`放到一页，大对象的 slab 中物理结构和逻辑结构相同。
 
 ![图 3: slab 的逻辑结构](images/logical-layout-of-kmem_slab.png)
 

@@ -4,9 +4,10 @@ subtitle: "A Lock-Free, Cache-Efficient Shared Ring Buffer for Multi-Core Archit
 aliases: [/posts/a-lock-free-cache-efficient-shared-ring-buffer-for-multi-core-architectures]
 date: 2022-10-13T22:26:21+08:00
 draft: false
-author: "孔俊"
-authorLink: "https://github.com/kongjun18"
-authorEmail: "kongjun18@outlook.com"
+author:
+  name: "Jun"
+  link: "https://github.com/kongjun18"
+  avatar: "/images/avatar.jpg"
 description: ""
 keywords: ["Concurrency", "Data Structure"]
 comment: true
