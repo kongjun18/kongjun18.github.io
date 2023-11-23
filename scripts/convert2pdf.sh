@@ -17,7 +17,7 @@ for post in content/posts/*; do
     archived_pdf="${archive_dir}/${post##*/}.pdf"
     post_git_date=$(${GIT} log --format=%ct -1 "${post}")
     post_stat_date=$(stat --format=%Y "${index_md}")
-    pdf_stat_date=$(stat --format=%Y "${archived_pdf}")
+    pdf_stat_date=$(stat --format=%Y "${archived_pdf}" || true)
     if [[ ! -e "${archived_pdf}" ]] || [[ "${post_git_date}" -gt "${pdf_stat_date}" ]] || [[ "${post_stat_date}" -gt "${pdf_stat_date}" ]]; then
       echo "converting ${index_md} to ${archived_pdf}"
       archived_pdf="$(realpath "${archived_pdf}")"
