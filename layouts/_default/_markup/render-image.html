@@ -1,4 +1,9 @@
 <figure>
-    <img src="{{ .Destination | safeURL }}" alt="{{ .Text }}">
+    <img src="{{ .Destination | safeURL }}"
+         alt="{{ .Text }}"
+         {{ with .Title }}
+         title="{{ . }}"
+         {{ end }}
+         style="margin-left:auto;margin-right:auto;width:50%;">
     <figcaption>{{ .Text }}</figcaption>
 </figure>
