@@ -1,5 +1,8 @@
 您可以在这里下载所有文章的 PDF 版本
 
+## Distributed System
+<a href="efficient-exposure-of-partial-failure-bugs-in-distributed-systems-with-inferred-abstract-states.pdf">【论文阅读】Efficient Exposure of Partial Failure Bugs in Distributed Systems with Inferred Abstract States</a>
+
 ## Allocator
 
 <a href="k-and-r-allocator.pdf">致敬经典：K&R allocator 内存分配器</a>

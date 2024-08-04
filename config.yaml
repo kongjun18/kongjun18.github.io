@@ -3,8 +3,8 @@ languageCode: "en" #　使用中文
 hasCJKLanguage: true # 启用对东亚文字的支持
 title: "Jun's website" # 浏览器标签名
 theme: "FixIt" # 主题
-permalinks:
-  posts: /posts/:year/:month/:day/
+# permalinks:
+#   posts: /posts/:year/:month/:day/
 summaryLength: 180
 params: # 覆盖默认选项
   version: "0.2.x" # FixIt v0.2.x 版本
