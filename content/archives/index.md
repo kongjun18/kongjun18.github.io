@@ -39,7 +39,7 @@
 
 <a href="linux-load-averages-solving-the-mystery.pdf">【译】拨开 Linux 平均负载的谜团</a>
 
-<a href="what-is-tar.pdf">什么是 tar</a>
+<a href="what-is-tar.pdf">tar 格式详解</a>
 
 ## Lua
 
