@@ -1,21 +1,14 @@
 ---
 title: "{{ replace .TranslationBaseName "-" " " | title }}"
-subtitle: ""
 date: {{ .Date }}
-draft: true
-author:
-  name: "{{ .Site.Params.author.name }}"
-  link: "{{ .Site.Params.author.link }}"
-  avatar: "/images/avatar.jpg"
-description: ""
 keywords: ""
 comment: true
 weight: 0
 
 tags:
-- draft
+- XXX
 categories:
-- draft
+- XXX
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
@@ -23,9 +16,9 @@ hiddenFromSearch: false
 summary: ""
 resources:
 - name: featured-image
-  src: featured-image.png
+  src: images/featured-image.png
 - name: featured-image-preview
-  src: featured-image.png
+  src: images/featured-image.png
 
 toc:
   enable: true
