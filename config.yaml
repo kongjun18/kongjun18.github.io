@@ -123,13 +123,13 @@ menu:
       url: "/tags/"
       title: ""
       weight: 3
-    - identifier: "archives"
-      pre: ""
-      post: ""
-      name: "Archives"
-      url: "/archives/"
-      title: ""
-      weight: 4
+    # - identifier: "archives"
+    #   pre: ""
+    #   post: ""
+    #   name: "Archives"
+    #   url: "/archives/"
+    #   title: ""
+    #   weight: 4
     - identifier: "about"
       pre: ""
       post: ""
