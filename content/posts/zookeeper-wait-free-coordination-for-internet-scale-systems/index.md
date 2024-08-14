@@ -87,7 +87,7 @@ ZooKeeper 对于写操作（会修改 ZooKeeper 状态的操作），提供 A-li
 
 ZooKeeper 还保证每个客户端的请求按照它们发出的次序执行。这种和用户视角一致的一致性模型可以极大地降低用户的心智负担。*Time, clocks, and the ordering of events in a distributed system*设计分布式锁时，专门提到过这种“发送次序和执行（接收）次序”不同带来的麻烦。从逻辑时钟的角度看，可以将同一 pipeline 中的操作视作一个逻辑时间戳，per-client FIFO 次序就是指定的全序。
 
-ZooKeeper 的 per-client FIFO 次序也确保了客户端可以读取到它自己的写。因为读写发生于同一客户端，客户端的读必须等待它自己的写执行完毕才能读。这种情况类似于带 store buffer 的多处理器使用的 bypass 技术，参考[ 【译】内存屏障：软件黑客的硬件视角](https://kongjun18.github.io/posts/2022/11/03/)
+ZooKeeper 的 per-client FIFO 次序也确保了客户端可以读取到它自己的写。因为读写发生于同一客户端，客户端的读必须等待它自己的写执行完毕才能读。这种情况类似于带 store buffer 的多处理器使用的 bypass 技术，参考[【译】内存屏障：软件黑客的硬件视角](https://kongjun18.github.io/posts/memory-barriers-a-hardware-view-for-software-hackers/)
 
 ZooKeeper 的读是最终一致的。客户端可以直接和任意 follower 建立会话，并从 follower 读取数据，称为 local read。follower 的状态可能落后于其他服务器的状态，因此客户端可能读到旧值，但由于 Zab 共识协议，达成共识的值最终一定会扩散到集群所有服务器，因此客户端最终能读取到最新值。
 

@@ -46,7 +46,7 @@ Facebook 的 BLOB（Binary Large OBject）工作负载有以下特征：
 - 冷热分区
 - 不可变数据
 
-[[Finding a needle in haystack Facebook's photo storage]] 的目标是高 IOPS，但存储成本高。面对**冷热分区**的工作负载，Facebook 设计了暖存储系统 f4，专为第存储成本和高容错设计，填补 Facebook BLOB 存储系统的最后一块拼图。
+*Finding a needle in haystack Facebook's photo storage* 的目标是高 IOPS，但存储成本高。面对**冷热分区**的工作负载，Facebook 设计了暖存储系统 f4，专为第存储成本和高容错设计，填补 Facebook BLOB 存储系统的最后一块拼图。
 
 Facebook BLOB 存储系统主要要思考三个问题：
 1. 如何组合热存储 haystack 和暖存储 f4 为一个 BLOB 存储系统？

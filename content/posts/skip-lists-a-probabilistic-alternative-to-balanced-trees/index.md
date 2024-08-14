@@ -54,7 +54,7 @@ repost:
 ## skiplist 性能参数
 - 层数增长概率 p
 	具有 k-1 层的节点是否拥有第 k 层的概率记作 p，论文认为最佳的概率是 1/4。
-	![](images/skiplist-search-speed-and-space-requirements.png|500)
+	![](images/skiplist-search-speed-and-space-requirements.png)
 - 最大层数
 	论文认为，节点个数为 N 的 skiplist 的最佳起始搜索层数 L(N) 是该层节点数量恰好等于 1/p 的层数，即$L(n)=log_{1/p}N$。为了简单，skiplist 从顶层开始搜索，因此性能最好的最大层数就是 L(n)。
 
