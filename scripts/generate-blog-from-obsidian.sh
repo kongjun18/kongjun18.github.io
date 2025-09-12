@@ -43,6 +43,8 @@ find "$OBSIDISN_NOTES_PATH" -name "*.md" | while read -r note_path; do
 done
 
 cat "${note_path_file}" | while read -r note_path; do
+        hugo_mdate=""
+        hugo_cdate=""
         # --- A. 提取笔记信息 ---
         filename=$(basename "$note_path")
         title="${filename%.md}"
@@ -61,8 +63,8 @@ cat "${note_path_file}" | while read -r note_path; do
                 obsidian_mtime=$(stat --format="%Y" "$note_path")
 
                 # 2. 从Hugo文件中解析出date字段的字符串
-                hugo_cdate=$(grep -m 1 '^date:' "$hugo_file" | sed 's/date: *//')
-                hugo_mdate=${hugo_cdate:-$(grep -m 1 '^mdate:' "$hugo_file" | sed 's/mdate: *//')}
+                hugo_cdate=$(grep -m 1 '^date:' "$hugo_file" | sed 's/date: *//' | sed 's/"//g')
+                hugo_mdate=${hugo_cdate:-$(grep -m 1 '^mdate:' "$hugo_file" | sed 's/mdate: *//' | sed 's/"//g')}
 
                 if [ -n "$hugo_mdate" ]; then
                     # 3. 将Hugo的date字符串转换为时间戳 (秒)
@@ -89,31 +91,31 @@ cat "${note_path_file}" | while read -r note_path; do
         is_first_image=true
 
         # 处理图片链接: ![[image name.png]]
-        image_links=$(rg -oP '\!\[\[.*?\]\]' ${processed})
+        mapfile -t image_links < <(rg -oP '\!\[\[.*?\]\]' ${processed})
 
-        if [ -n "$image_links" ]; then
-            echo "$image_links" | while read -r obsidian_link; do
-                image_name=$(echo "$obsidian_link" | sed -e 's/!\[\[//g' -e 's/\]\]//g' -e 's/|.*//')
-                processed_image_name=$(slugify "$image_name")
-                image_path=$(find "$OBSIDIAN_VAULT_PATH" -name "$image_name" | head -n 1)
+        for obsidian_link in "${image_links[@]}"; do
+            image_name=$(echo "$obsidian_link" | sed -e 's/!\[\[//g' -e 's/\]\]//g' -e 's/|.*//')
+            processed_image_name=$(slugify "$image_name")
+            image_path=$(find "$OBSIDIAN_VAULT_PATH" -name "$image_name" | head -n 1)
+            echo "image_name: $image_name"
 
-                if [ -f "$image_path" ]; then
-                    cp "$image_path" "$hugo_images_dir/${processed_image_name}"
-                    echo "  -> copied image $image_name to ${processed_image_name}"
-                    sed -i "s/${image_name}/${processed_image_name}/g" ${processed}
-                    # ![[image|500]] -> ![[image]]
-                    sed -i 's/!\[\[\([^|]*\)|.*\]\]/!\[\[\1\]\]/g' ${processed}
-                    sed -i 's/!\[\[\([^]]*\)\]\]/![](\.\/images\/\1)/g' ${processed}
+            if [ -f "$image_path" ]; then
+                cp "$image_path" "$hugo_images_dir/${processed_image_name}"
+                echo "  -> copied image $image_name to ${processed_image_name}"
+                sed -i "s/${image_name}/${processed_image_name}/g" ${processed}
+                # ![[image|500]] -> ![[image]]
+                sed -i 's/!\[\[\([^|]*\)|.*\]\]/!\[\[\1\]\]/g' ${processed}
+                sed -i 's/!\[\[\([^]]*\)\]\]/![](\.\/images\/\1)/g' ${processed}
 
-                    if [ "$is_first_image" = true ]; then
-                        featured_image="images/$(basename "$image_name")"
-                        is_first_image=false
-                    fi
-                else
-                    echo "  -> WARNING: Image not found for link: $image_name"
+                if [ "$is_first_image" = true ]; then
+                    featured_image="images/${processed_image_name}"
+                    echo "featured_image: ${featured_image}"
+                    is_first_image=false
                 fi
-            done
-        fi
+            else
+                echo "  -> WARNING: Image not found for link: $image_name"
+            fi
+        done
 
         mapfile -t internal_links < <(cat "${processed}" | rg -oP '\[\[.*?\]\]' | rg -v '^\!')
         # 2. 遍历数组中的每一个链接
@@ -133,7 +135,7 @@ cat "${note_path_file}" | while read -r note_path; do
             linked_slug=$(slugify "$linked_title")
 
             # 5. 安全地替换原文中的链接
-            if rg "${linked_slug}" "${slug_file}"; then
+            if rg -q "${linked_slug}" "${slug_file}"; then
                 sed -i "s/\[\[${linked_title}]]/\[$linked_title](https:\/\/$WEBSITE_URL\/posts\/$linked_slug)/g" "${processed}"
                 sed -i "s/\[\[${linked_title}|[[:space:]]*${display_text}]]/\[$display_text](https:\/\/$WEBSITE_URL\/posts\/$linked_slug)/g" "${processed}"
             else
@@ -157,14 +159,15 @@ cat "${note_path_file}" | while read -r note_path; do
         # --format="%Y" 获取最近修改时间的Unix时间戳
         # -d "@..."  告诉date命令输入是一个Unix时间戳
         # --iso-8601=seconds 直接输出ISO 8601格式
-        timestamp=$(stat --format="%Y" "$note_path")
-        mdate=$(date -d "@$timestamp" --iso-8601=seconds)
-        cdate=${hugo_cdate:-$(date --iso-8601=seconds)}
+        obsidian_mtime=$(stat --format="%Y" "$note_path")
+        mdate=$(date -d "@$obsidian_mtime" --iso-8601=seconds)
+        obsidian_cdate=$(rg '^created: ' "${note_path}" | sed 's/.*: //g')
+        cdate=${hugo_cdate:-${obsidian_cdate}}
         hugo_file="$hugo_post_dir/index.md"
 
         cat > "$hugo_file" << EOF
 ---
-title: "$title"
+title: "[Paper Note] $title"
 date: $cdate
 mdate: $mdate
 comment: true
@@ -183,10 +186,8 @@ hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: $featured_image
 
 toc:
   enable: true
