@@ -7,7 +7,6 @@ theme: "FixIt" # 主题
 #   posts: /posts/:year/:month/:day/
 summaryLength: 180
 params: # 覆盖默认选项
-  version: "0.2.x" # FixIt v0.2.x 版本
   defaultTheme: "auto" # FixIt 默认样式为 auto
   gitRepo: "https://github.com/kongjun18/blog" # 源代码 Github 网址
   externalIcon: true # 启用外链
