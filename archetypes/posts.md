@@ -1,6 +1,7 @@
 ---
 title: "{{ replace .TranslationBaseName "-" " " | title }}"
 date: {{ .Date }}
+mdate: {{ .Date }}
 keywords: ""
 comment: true
 weight: 0
