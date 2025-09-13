@@ -8,7 +8,7 @@ author:
 license: "All rights reserved"
 keywords: []
 comment: true
-weight: 2
+weight: 0
 
 tags:
 - Go
