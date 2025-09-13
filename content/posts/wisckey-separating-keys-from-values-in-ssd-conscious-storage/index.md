@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Wisckey Separating keys from values in ssd-conscious storage"
-date: "2024-03-12"
-keywords: ""
+title: "[Paper Note] Wisckey Separating keys from values in ssd-conscious storage"
+date: 2024-03-12
+mdate: 2025-09-12T18:06:07-07:00
 comment: true
 weight: 0
 author:
@@ -9,28 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
-- Storage
 
 categories:
-- Distributed System
-- Storage
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/wiskey-data-layout.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -39,6 +33,7 @@ repost:
   enable: true
   url: ""
 ---
+
 
 ## 背景
 LSM Tree 已经在 write-intensive database 中大量应用，但旧的实现存在以下问题：
@@ -71,7 +66,7 @@ LSM Tree 已经在 write-intensive database 中大量应用，但旧的实现存
 KV 分离的设计带来了给范围查询、一致性、GC 等带来了挑战，论文巧妙地通过一系列简洁高效的设计解决了这些问题。
 ## 设计
 
-![](images/Wiskey-data-layout.png)
+![](./images/wiskey-data-layout.png)
 在 LSM-tree 中存储`<key, addr>`，在 vLog（Value Log）中以 log-structured 方式存储 value。
 
 查询时，在 LSM-tree 查找到`<key, addr>`，拿到地址后从 vLog 中读取 value。
@@ -96,14 +91,14 @@ value 在 vLog 中不是有序的，因此无法顺序读取。
 Wiskey 用一下两种方法实现高效的范围查询：
 1. 缓存 LSM-tree 到内存。LSM-tree 只含有 key，通常可以全部或部分缓存到内存中。查询 key 的过程不涉及磁盘 IO。
 2. 并发从 vLog 读取 value。SSD 的并发乱序读性能和串行顺序读性能持平。
-[评估](#评估)一节可以看到，SSD 在数据大小达到一定阈值后，并发乱序读吞吐量才能和串行顺序读持平，并且并发乱序读性能取决于 SSD 的内部并行程度。因此 Wiskey 范围查询的性能取决于：
+*#评估*一节可以看到，SSD 在数据大小达到一定阈值后，并发乱序读吞吐量才能和串行顺序读持平，并且并发乱序读性能取决于 SSD 的内部并行程度。因此 Wiskey 范围查询的性能取决于：
 1. value 的大小。小对象的范围查询性能不如 LevelDB。
 2. SSD 内部并行程度。
 
 ### 垃圾回收
 key 存储在 LSM-tree 中，compaction 时进行 GC。Wiskey 主要考虑的是 vLog 的垃圾回收，即设计一种在线的垃圾回收算法，尽可能减少对用户写入的干扰。
 
-![](images/Wiskey-GC.png)
+![](./images/wiskey-gc.png)
 Wiskey vLog 的 GC 算法和 *Log-structured SSD* 类似。合法的 value  放在连续区域 tail-head 中，tail 标示 GC 起始位置，head 标示 GC 终止位置（同时也是下一次写入位置）。tail 和 head 会被持久化到 LSM-tree 中，GC 时递增 tail，所有写入都递增 head。
 
 GC 流程就是从 tail 开始读取 value，将最新的 value 附加到 head，并更新 tail/head。为了判断 value 是否过时，Wiskey 修改了 vLog 的布局，将 key-value 一起存储到 vLog 中。读取 key-value，并从 LSM-tree 中查询该 key，判断地址是否和 key-value 在 vLog 中的地址相同即可判断该 value 是否过时。
@@ -118,7 +113,7 @@ GC 流程如下：
 vLog 实现为一个文件，GC 后被回收的文件范围（tai-head）会变成一个“洞”（hole）。现代文件系统支持通过 fallocate(2) 分配/回收文件空间，Wiskey 就是用 fallocate(2) 释放 GC 回收的空间。
 
 Wiskey 的 GC 是在线算法，GC 和用户写并发进行。这会导致竟态条件：
-1. GC 扫描到 key，发现该 key 时最新的。
+1. GC 扫描到 key，发现该 key 是最新的。
 2. 用户写入该 key 的新 value。
 3. GC 将该 key 的旧值的新地址写入 LSM-tree。
 4. key 指向旧值，导致新值丢失。
@@ -164,3 +159,6 @@ LevelDB 为了实现持久性，写 memtable 前要先写 WAL。在 Wiskey 中�
 2. compaction 导致前台写卡顿。
 3. 写 LSM-tree log。
 
+---
+## References
+- [Wisckey: Separating keys from values in ssd-conscious storage](zotero://open-pdf/library/items/XDKSMJH5)

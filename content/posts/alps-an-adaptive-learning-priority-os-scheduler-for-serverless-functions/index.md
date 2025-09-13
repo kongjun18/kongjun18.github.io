@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】ALPS An Adaptive Learning, Priority OS Scheduler for Serverless Functions"
-date: "2024-09-03"
-keywords: ""
+title: "[Paper Note] ALPS An Adaptive Learning, Priority OS Scheduler for Serverless Functions"
+date: 2024-09-03
+mdate: 2025-09-12T17:52:12-07:00
 comment: true
 weight: 0
 author:
@@ -9,23 +9,17 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
-- Operating System
 
 categories:
-- Distributed System
-- Operating System
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/alps-figure-2.png
 
 toc:
   enable: true
@@ -66,25 +60,25 @@ CFS(Complete Fair Scheduler) 是 Linux 默认的调度器，目标是公平性�
 | CFS  | 久经考验，长任务不会饿死 | 对 FaaS 负载不友好。              |
 | SFS  | 性能比 CFS 好    | 1. 应用态/内核态通信成本 2. 需要修改用户代码 |
 
-CFS 虽然在 FaaS 下表现不好，但久经考验，而且提供了调整策略的机制。论文将基于 CFS 开发新的调度器。
+CFS 虽然不够好，但久经考验，而且提供了调整策略的机制。论文将基于 CFS 开发新的调度器。
 
 论文首先测试了 FaaS 负载下多种 SRPF 模拟算法（预测进程执行时间）的性能，获得两个重要发现：
 1. 如果所有的预测都不准确，但是误差可控，仍能实现逼近 SRPF 的性能。
 2. 只要有一部分预测是准确的，即使另一部分预测完全是随机的，也能逼近 SRPF 的性能。
-![](images/alps-figure-2.png)
+![](./images/alps-figure-2.png)
 这一发现意味着模拟 SRPF 是可行的方案。此外，论文发现函数的执行时间存在规律，并将其划分成 4 个函数组。
-![](images/function-group.png)
+![](./images/截屏2024-09-15-下午10.38.17.png)
 函数组有不同的 SRPF 时间片（指在 SRPF 策略下的时间片）特征：
 - 短任务的 SRPF 时间片长度非常集中
 - 长任务的 SRPF 时间片长度跨度很大
-![](images/alps-figure-3.png)
-ALPS 学习函数组（见 [Q&A](#Q&A)）中函数的历史执行信息，预测未来的时间片，并用于调度策略。ALPS 将问题拆分成两个子问题：
+![](./images/alps-figure-3.png)
+ALPS 学习函数组（见 *#Q[[#Q&A]]A*）中函数的历史执行信息，预测未来的时间片，并用于调度策略。ALPS 将问题拆分成两个子问题：
 1. 如何学习调度的进程次序（优先级），即调度时那个进程先被调度。
 2. 如何学习进程的时间片，即让被调度进程运行多久。
 
 ## 架构
 
-![](images/alps-figure-4.png)
+![](./images/alps-figure-4.png)
 1. ALPS frontend 收集上一个滑动窗口（默认一分钟）的函数执行信息，包括 function ID、到达时间、使用的 CPU 时间（这个时间通过 eBPF 获取）、结束时间（没有结束的函数不记录结束时间）。
 2. frontend 用收集到的函数执行信息模拟 SRPT 调度，得到 SRPT 每个 function deployment 下函数的 SRPF 时间片、等待时间等指标。
 3. 用 SRPT 指标预测下一次的时间片和调度次序（调度优先级）
@@ -165,4 +159,23 @@ ALPS 通过 eBPF hook 了以下两个函数：
 
 从代码逻辑上看，每个函数都有一个所属的`class_id`，应该就是论文中 function deployment 的 ID。
 
+- [x] 代码细节
+  - class_id 相当于 function deployment
+  - workload 记录的不需要是完成的 function，只要有运行时间就可以进行 SRPF simulation
+  - simulation 得到的是一个  funciton deployment 的所有 function 的 timeslice 和 waiting time。timeslice 是 SRPF 下一个 function 单次调度运行的时间。
+  - SRPF simulation 中，一个 function 运行 6 单位的 timeslice 后才可能被抢占，因此 timeslice 最小是 6。
+  - 代码里最终计算时间片还考虑到了上次时间片长度，如果上次时间片长度大于 1，则计算得到的 timeslice x 0.7 + 0.3 x last-timeslice
 
+- [ ] OpenLambda 怎么知道在为哪个 URL 启动哪个容器
+- [x] 代码中 ol 到底是啥？仓库好像没提供代码
+ol 就是修改后的 OpenLambda。不确定有没有提供代码，experiment/ 下的 python 文件可能是。
+
+backend 不断调用 frontend，逻辑在`handleClient`中。backend 将上一次的 policy（包含 priority 和 timeslice）发送给 frontend，frontend 根据这次的运行结果，进行 simulation 和微调，返回新的 policy 给 backend。
+
+simulation 时，从 workload 读取运行信息，相当于论文中的 sliding window。但是没找到 workload 文件写入的地方。
+
+simulation 结束后输出一个 csv（data.csv，本次 simulation 的结果），微调用这个 cvs 进行。
+
+---
+## References
+- https://docs.kernel.org/scheduler/sched-design-CFS.html

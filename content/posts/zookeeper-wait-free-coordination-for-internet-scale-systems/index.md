@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】ZooKeeper wait-free coordination for internet-scale systems"
-date: "2023-10-22"
-keywords: ""
+title: "[Paper Note] ZooKeeper wait-free coordination for internet-scale systems"
+date: 2023-10-22
+mdate: 2025-05-22T01:50:34-07:00
 comment: true
 weight: 0
 author:
@@ -9,26 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
 
 categories:
-- Distributed System
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/zookeeper-componets.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -37,6 +33,7 @@ repost:
   enable: true
   url: ""
 ---
+
 
 ## 背景
 
@@ -76,7 +73,7 @@ Zookeeper 的接口提供异步版本，使客户端可以一次发出多个请�
 
 ZooKeeper 集群中，任一时刻只有一个节点作为 leader，其他节点作为 follower。Leader 使用 Zab 协议确保客户端对服务器状态的修改复制到集群所有服务器中。
 
-![](images/ZooKeeper-componets.png)
+![](./images/zookeeper-componets.png)
 Replicated 数据库是一个内存数据库，znode 的大小通常不超过 1MB。
 
 ### 一致性模型
@@ -85,7 +82,7 @@ ZooKeeper 精妙地运用异步接口和流水线技术提高吞吐量，这也�
 
 ZooKeeper 对于写操作（会修改 ZooKeeper 状态的操作），提供 A-linearizability 保证。A-linearizability 即 async linearizability。Linearizability 的原始定义中，一个客户端任意时刻只有一个已发出的请求，而 ZooKeeper 的异步 API 导致一个客户端任意时刻可能存在多个已发出请求。论文对 A-linearizability 的定义为 *all requests that update the state of ZooKeeper are serializable and respect precedence*。serilizable 指这些写等价于某种串行写的全序，respect precedence 指遵守实时要求（realtime constraint），即写是 linearizability。
 
-ZooKeeper 还保证每个客户端的请求按照它们发出的次序执行。这种和用户视角一致的一致性模型可以极大地降低用户的心智负担。*Time, clocks, and the ordering of events in a distributed system*设计分布式锁时，专门提到过这种“发送次序和执行（接收）次序”不同带来的麻烦。从逻辑时钟的角度看，可以将同一 pipeline 中的操作视作一个逻辑时间戳，per-client FIFO 次序就是指定的全序。
+ZooKeeper 还保证每个客户端的请求按照它们发出的次序执行。这种和用户视角一致的一致性模型可以极大地降低用户的心智负担。[Time, clocks, and the ordering of events in a distributed system](https://kongjun18.github.io/posts/time-clocks-and-the-ordering-of-events-in-a-distributed-system)设计分布式锁时，专门提到过这种“发送次序和执行（接收）次序”不同带来的麻烦。从逻辑时钟的角度看，可以将同一 pipeline 中的操作视作一个逻辑时间戳，per-client FIFO 次序就是指定的全序。
 
 ZooKeeper 的 per-client FIFO 次序也确保了客户端可以读取到它自己的写。因为读写发生于同一客户端，客户端的读必须等待它自己的写执行完毕才能读。这种情况类似于带 store buffer 的多处理器使用的 bypass 技术，参考[【译】内存屏障：软件黑客的硬件视角](https://kongjun18.github.io/posts/memory-barriers-a-hardware-view-for-software-hackers/)
 
@@ -151,4 +148,4 @@ ZooKeeper 典型的工作负载是读多写少，因此通过放松读一致性�
 	能够读取到 sync 及其以后状态即可。
 
 ## References
-- *ZooKeeper: wait-free coordination for internet-scale systems.pdf*
+- [ZooKeeper: wait-free coordination for internet-scale systems.pdf](zotero://open-pdf/library/items/BIS96G5T)

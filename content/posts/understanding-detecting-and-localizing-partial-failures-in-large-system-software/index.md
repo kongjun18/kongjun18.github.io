@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Understanding, detecting and localizing partial failures in large system software"
-date: "2024-08-05"
-keywords: ""
+title: "[Paper Note] Understanding, detecting and localizing partial failures in large system software"
+date: 2024-08-05
+mdate: 2025-05-22T01:50:34-07:00
 comment: true
 weight: 0
 author:
@@ -9,23 +9,17 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
-- Reliability
 
 categories:
-- Distributed System
-- Reliability
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/understanding-detecting-and-localizing-partial-failures-in-large-system-software-figure-4.png
 
 toc:
   enable: true
@@ -39,6 +33,7 @@ repost:
   enable: true
   url: ""
 ---
+
 
 ## 背景
 
@@ -77,7 +72,7 @@ partial failure 往往涉及特定代码块的执行和程序状态的破坏，�
 
 OmegaGen 先对程序进行静态分析，生成 mimic-style checker，并在适当的位置插入 hook，让主试程序在执行时激活 checker。程序会将自己的参数写入 context，checker 从 context 获取参数。checker 运行在主进程的地址空间中，其逻辑和主程序可以视作相同的，接收的参数也相同，因此 checker 的执行结果也应当和主程序相同。
 
-![](images/Understanding, detecting and localizing partial failures in large system software figure-4.png)
+![](./images/understanding-detecting-and-localizing-partial-failures-in-large-system-software-figure-4.png)
 
 watchdog checker 主要检测安全性和活性：
 - 安全性（safeness）：捕获抛出的异常，如 OOM、空指针等。
@@ -97,7 +92,7 @@ OmegaGen watchdog 监测的是系统中长期运行的方法，这些方法在�
 - 和外界的交互，包括依赖外部输入的参数的操作、磁盘和网络 IO 等。
 - 可能导致卡死的操作，包括复杂的循环、同步操作、事件轮询、资源获取和释放。
 OmegaGen 主要通过标准库识别关键操作，例如在下图中`oa.writeRecord`中有大量 IO 操作，因此被识别为关键操作。
-![](images/Understanding, detecting and localizing partial failures in large system software figure-5-a.png)
+![](./images/understanding-detecting-and-localizing-partial-failures-in-large-system-software-figure-5-a.png)
 关键操作的识别有良好的容错性，普通操作被识别关键操作只会浪费一些系统资源。关键操作被错误忽略通常也不影响测试结果。如果关键操作造成的错误通常会沿着调用链扩散，卡死会导致上层调用者卡死，抛出的异常通常也会传递到上层调用这。因此，即使忽略了某些关键操作，只要在其调用链上有别的操作被识别为关键操作，也有机会检测到故障。
 
 #### 归约程序
@@ -111,7 +106,7 @@ OmegaGen 主要通过标准库识别关键操作，例如在下图中`oa.writeRe
 归约化方法会被封装为 watchdog，watchdog 除了调用归约化方法，还会在执行完成后调用 validator 判断暴露的错误是否真的是 partial failure。
 
 OmegaGen 会在原始方法前插入 context hook，这个 hook 保存主程序调用方法时的参数到 context 中，watchdog 从 context 获取参数用于执行。
-![](images/Understanding, detecting and localizing partial failures in large system software figure-5-ab.png)
+![](./images/understanding-detecting-and-localizing-partial-failures-in-large-system-software-figure-5-ab.png)
 ### 隔离
 watchdog 和主程序运行在同一个地址空间，因此必须对 watchdog 和主程序进程隔离，避免 watchdog 的运行破坏主程序的状态。主要是内存状态和 IO 操作两大方面。
 
@@ -166,7 +161,7 @@ OmegaGen 主要是针对活性和安全性，对正确性无能为力。正确�
 ## Q&A
 - [x] checker 运行的时机？
     Evaluation 中说，每秒运行一次。如果是定时运行，而不是每次主程序调用都触发 watchdog checker，这样不会有正确性问题吗？
-
+    
     watchdog checker 针对的是关键操作，没有完整地执行业务逻辑。定期执行关键操作应该没问题。
 
 

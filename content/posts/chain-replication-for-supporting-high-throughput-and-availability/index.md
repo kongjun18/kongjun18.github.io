@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Chain Replication for Supporting High Throughput and Availability"
-date: "2024-01-12"
-keywords: ""
+title: "[Paper Note] Chain Replication for Supporting High Throughput and Availability"
+date: 2024-01-12
+mdate: 2025-09-12T18:09:59-07:00
 comment: true
 weight: 0
 author:
@@ -9,23 +9,17 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
-- Storage
 
 categories:
-- Distributed System
-- Storage
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/screenshot_20231111_214832.png
 
 toc:
   enable: true
@@ -39,8 +33,9 @@ repost:
   enable: true
   url: ""
 ---
+
 ## 背景和驱动
-GFS(Google File System) 等存储系统为了高吞吐和高可用牺牲强一致性，本论文提出一种新复制协议链式复制（Chain Replication，简称 CR），在保持强一致性的前提下实现高吞吐和高可用。
+*The Google file system* 等存储系统为了高吞吐和高可用牺牲强一致性，本论文提出一种新复制协议链式复制（Chain Replication，简称 CR），在保持强一致性的前提下实现高吞吐和高可用。
 
 本论文用 CR 协议讨论了对象存储的设计和实现。论文讨论的对象存储只有 query 和 update 两种操作，update 原子地更新对象。
 ## 接口
@@ -61,18 +56,20 @@ CR 实际上是 PB（Primary/Backup）策略的改进版本，将 PB 的并发�
         - UPDATE：将更新附加对象`Hist`。
 3. 集群忽略请求：从`Pending`删除该请求。
 
-![](images/Screenshot_20231111_214832.png)
+![](./images/screenshot_20231111_214832.png)
 
 实际的存储实现上，对象的多个副本串联成一条链。客户端看到的两个状态在实现上定义为：
-- $Hist_{obj}$ 定义为 $Hist^{T}\_{objID}$ 。$Hist^{T}_{objID}$ 即尾节点记录的更新序列。
+- $Hist_{obj}$ 定义为 $Hist^{T}_{objID}$。$Hist^{T}_{objID}$ 即尾节点记录的更新序列。
 - $Pending_{objID}$ 定义为链上任何节点接收到但尾节点未响应的请求。
 
 链上的节点（副本）可以分为三种角色：
 1. 首节点：接收客户端的 update 请求，并计算结果。HEAD 将最终结果转发给后继节点。
 2. 中间节点：接收前继节点转发的数据，应用于自己的副本并转发给下一个节点。
 3. 尾节点：向客户端返回 UPDATE 的响应，以及服务 query。因为消息从头到尾串行传播，尾节点的 $Hist^{T}_{objID}$就是链上已提交的更新序列，可以直接响应 query 序列。
-![](images/chain-replication-protocal.png)
-CR 链只负责复制，故障检测、领导者选举等由中心化的 master 节点完成。master 节点通常利用 Raft（*In Search of an Understandable Consensus Algorithm*）等共识协议或 *ZooKeeper wait-free coordination for internet-scale systems* 进行容错。
+
+![](./images/chain-replication-protocal.png)
+
+CR 链只负责复制，故障检测、领导者选举等由中心化的 master 节点完成。master 节点通常利用 Raft（[In Search of an Understandable Consensus Algorithm](https://kongjun18.github.io/posts/in-search-of-an-understandable-consensus-algorithm)）等共识协议或 [ZooKeeper wait-free coordination for internet-scale systems](https://kongjun18.github.io/posts/zookeeper-wait-free-coordination-for-internet-scale-systems) 进行容错。
 
 链式复制有以下几个特点：
 - 只在 HEAD 计算，中间节点只是转发数据。
@@ -94,8 +91,7 @@ CR 链只负责复制，故障检测、领导者选举等由中心化的 master 
 >[!NOTE]
 >论文说不继续转发 $S$ 故障前的接收到的消息会破坏 Update Progapagion Invariant。考虑这种情况，节点不记录 $Sent{i}$，节点 $S$ 故障后，$S^{-}$ 不向 $S^{+}$ 转发 $Sent_{S^{-}}$，此时客户端发送 update 请求并且 CR 链服务了此请求。此时，从 $S+$ 开始的节点的 $Hist$ 不再是 $S^{-}$ 及以前的节点的 $Hist$ 的前缀。
 
-![](images/Screenshot_20231112_1618191.png)
-
+![](./images/screenshot_20231112_161819-1.png)
 - TAIL 故障：Master 检测到故障，通知 TAIL 的前继节点成为新的 TAIL 节点，并通知客户端新配置。
 
 故障恢复的成本主要取决于
@@ -109,7 +105,7 @@ CR 协议的可用性略优于 PB 协议。
 - 最差情况：PB 的 primary 故障，CR 的 TAIL 故障。
     考虑 PB 协议下 primary 故障后的恢复流程，Master 节点要检测到故障，然后获取所有 backup 的状态，选择状态最新的 backup 为新的 primary，再将新配置同步给客户端。而 CR 协议下，TAIL 故障只需要删除 TAIL 即可，因此最差情况下 CR 的服务中断时间不长于 PB。
 - 最佳情况下：PB 的 backup 故障，CR 的中间节点故障。
-    论文说 PB 策略只在无进行中的 update 时可以服务 query。论文的意思可能是要实现 *ZooKeeper wait-free coordination for internet-scale systems* 的流水线和异步接口，因此 query 必须等待先前的 update 完成。论文的描述非常模糊，实际上要实现线性一致性只需要确保 query 不能读取到未提交的 update 即可，query 不需要等待进行中的 update。如果要实现 *ZooKeeper wait-free coordination for internet-scale systems#一致性模型*，CR 也必须等待 update 完成。因此，我倾向于认为最佳情况下 PB 和 CR 的可用性相差无几。
+    论文说 PB 策略只在无进行中的 update 时可以服务 query。论文的意思可能是要实现 [ZooKeeper wait-free coordination for internet-scale systems](https://kongjun18.github.io/posts/zookeeper-wait-free-coordination-for-internet-scale-systems) 的流水线和异步接口，因此 query 必须等待先前的 update 完成。论文的描述非常模糊，实际上要实现线性一致性只需要确保 query 不能读取到未提交的 update 即可，query 不需要等待进行中的 update。如果要实现 *ZooKeeper wait-free coordination for internet-scale systems#一致性模型*，CR 也必须等待 update 完成。因此，我倾向于认为最佳情况下 PB 和 CR 的可用性相差无几。
 
 ## 添加节点
 理论上可以将节点添加到 CR 链的任意位置，实践上通常添加到 CR 链末尾。
@@ -124,7 +120,7 @@ CR 协议添加新节点的方式和 *Raft 配置变更*时将新加入节点作
 ## 分片
 一个 CR 链只能保存 1 个对象的 N 个副本，对象存储将多个对象聚合为一个 volume，当成一个对象存储在一条 CR 链中。为了索引对象在 volume 中的位置，对象存储需要一个 dispatcher 将客户端请求（对象）转换为对 CR 链中的 volume 的请求。后文只考虑 CR 链存储对象的情况。
 >[!INFO]
->*Finding a needle in haystack Facebook's photo storage* 将海量小文件聚合成一个文件存储。
+>[Finding a needle in haystack Facebook's photo storage](https://kongjun18.github.io/posts/finding-a-needle-in-haystack-facebooks-photo-storage) 将海量小文件聚合成一个文件存储。
 
 一条 CR 链只能存储一个 volume/object，为了实现高吞吐，必须进行分片，使用多条 CR 链存储对象。使用分片策略可以带来以下好处：
 - 并发故障恢复。一台主机上放置 N 条 CR 链（作为 TAIL），故障恢复时该主机可以从它的 N 个前继并发同步数据。
@@ -138,7 +134,7 @@ CR 协议添加新节点的方式和 *Raft 配置变更*时将新加入节点作
 
 *FAWN a fast array of wimpy nodes* 使用了 ring 策略。
 
-![](images/1369Znc90JqKrVYvYBQCEjw.webp)
+![](./images/1369Znc90JqKrVYvYBQCEjw.webp)
 
 ## 对比
 
@@ -173,3 +169,6 @@ CR 协议的故障模型非常理想化，由独立的 Master 负责故障检测
     这是因为恢复过程中创建了新的 chain，恢复后的服务器不相比于其他服务器，所在的 chain 更少，但它是所有它所在的 chain 的 tail。这导致 chain 在服务器上的分布不再均衡，故障的节点上 chain 少，其他节点 chain 多，从而导致查询性能下降。
 
 
+---
+## References
+- [Chain Replication for Supporting High Throughput and Availability.pdf](zotero://open-pdf/library/items/6WJS62RA)

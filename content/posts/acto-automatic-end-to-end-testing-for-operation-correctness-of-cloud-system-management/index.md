@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Acto Automatic End-to-End Testing for Operation Correctness of Cloud System Management"
-date: "2024-07-03"
-keywords: ""
+title: "[Paper Note] Acto Automatic End-to-End Testing for Operation Correctness of Cloud System Management"
+date: 2024-07-03
+mdate: 2025-05-22T01:50:34-07:00
 comment: true
 weight: 0
 author:
@@ -9,28 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
-- Reliability
 
 categories:
-- Distributed System
-- Reliability
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/acto-property-mapping.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -39,6 +33,7 @@ repost:
   enable: true
   url: ""
 ---
+
 
 ## 背景
 许多部署在 Kubernetes 等现代云平台上的系统使用 operator 替代人工部署，但这些 operator 通常没有完整的 e2e 测试，极大的影响了分布式系统的可靠性。
@@ -81,7 +76,7 @@ Acto 适用于所有 operator，将 operator spec 的 property 还原成 Kuberne
 例如，Cassandra CRD 的`cassandraDataVolumeClaimSpec`和 Kubernetes StatefulSet 的`VolumeClaimTemplates`结构相同，Acto 将`cassandraDataVolumeClaimSpec`还原成`VolumeClaimTemplates`，状态迁移时修改`VolumeClaimTemplates`的 property。
 - Acto 白盒：通过语义分析，将 operator spec 还原到 Kubernetes 核心资源。
 注意，并非所有 Operator Spec 的所有 property 都能直接通过命名推测映射到 Kubernetes 核心资源，但大多数 property 都可以通过命名推测出来。
-![](images/Acto-property-mapping.png)
+![](./images/acto-property-mapping.png)
 
 property 间的依赖关系，以类似的方法得到：
 - Acto 黑盒：通过命名推测。
@@ -97,24 +92,24 @@ Acto 用以下三种测试策略探索状态空间：
 - 一系列操作：修改多次 operator spec 才到达最终状态。
 - 到达错误状态时回滚到上次正确状态，继续测试
 
-![](images/Acto-state-transition-of-different-test-trategies.png)
+![](./images/acto-state-transition-of-different-test-trategies.png)
 
 状态转移时，Acto 用以下策略生成 property 的值：
 - 每次修改一个 property。
 - 优先修改没有修改过的 property，从而确保测试期间所有 property 都被修改过至少一次。
 - property 的值以情景为中心，如先扩容再缩容等。
 - 某些 property 无法被映射到 Kubernetes 核心资源，对于这些 Acto 无法理解的 property，生成符合语法和限制的值即可，不考虑语义是否正确。
-![](images/Acto-builtin-scenarios.png)
+![](./images/acto-builtin-scenarios.png)
 >[!NOTE]
 >Kubernetes operator specification 会生成一个 specification 的 schema，记录每个 property 的类型和限制。Acto 根据这个 schema 生成符合语法和限制的值。
 
 Acto Oracle 检测当前状态是否匹配期待的状态，主要通过以下三种手段：
 - Consistency Oracle：检测 operator 视图和 Kubernetes 视图是否一致，不一致说明 operator 出错。
 这种情况的主要场景是，operator 认为已经到达目标状态，因此停止协调循环，但 Kubernetes 状态并未到达目标状态。例如RediScreenshot_20231119_175018sOp 认为`minAvailable`已经为 2（这时 Kubernetes `PodDisruptionBudget`的`redis-follower`一定不为空），但实际上`PodDisruptionBudget`的`redis-follower`为`null`。
-![](images/Acto-consistency-oracle.png)
+![](./images/acto-consistency-oracle.png)
 - Differential Oracle：从不同起始状态出发，对于同一操作一定能够能到达相同的期待状态，否则 operator 有 bug。
 这种情况主要是由于协调循环不完善，只能从特定起始状态到目标状态，也可能是回滚失败。
-![](images/Acto-differential-oracle.png)
+![](./images/acto-differential-oracle.png)
 - Normal Check：检测状态码、日志错误信息和系统抛出的异常等。
 
 Acto 会记录测试失败时的 snapshot，并生成最小化的测试代码，用于复现 bug。
@@ -133,3 +128,6 @@ Acto 黑盒可能由于 property 猜测失败导致假阳性，但误报率只�
 - 完全以状态为中心，无法测试被管理的系统自身是否正确。可能存在状态正确，但 operator 的 bug 导致被管理的系统行为异常，例如违反了规定的一致性。
 
 
+---
+## References
+- [Acto: Automatic End-to-End Testing for Operation Correctness of Cloud System Management](zotero://open-pdf/library/items/XRYCR3P9)

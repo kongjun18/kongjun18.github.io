@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Finding a needle in haystack Facebook's photo storage"
-date: "2023-07-10"
-keywords: ""
+title: "[Paper Note] Finding a needle in haystack Facebook's photo storage"
+date: 2024-07-10
+mdate: 2025-05-22T01:50:34-07:00
 comment: true
 weight: 0
 author:
@@ -9,28 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
-- Storage
 
 categories:
-- Distributed System
-- Storage
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/screenshot_20230709_175418.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -71,7 +65,7 @@ Haystack 由 Store、Direcotry 和 Cache 三大组件组成，各组件职责如
 - Store：负责存储照片
 - Directory：管理协调用户请求和底层存储
 - Cache：缓存照片以提升性能
-![](images/Screenshot_20230709_175418.png)
+![](./images/screenshot_20230709_175418.png)
 
 Haystack 将存储容量划分为物理卷（physical volume），逻辑卷映射到多个物理卷。为了实现容错，Haystack 写一个逻辑卷时，底层同时写对应的所有物理卷。
 
@@ -102,7 +96,7 @@ Haystack 通过这种方式克服了“背景“一节提出的两个问题：
 	读取 needle 需要知道 needle 在物理卷中的偏移，这里遭遇了和 POSIX 文件系统相同的 metadata lookup 问题。不同之处在于 POSIX 文件系统的目录结构导致 metadata lookup 缓慢，且由于 metadata（inode）体积庞大，无法在内存中保存 Photo ID 到 inode 的映射。而 Haystack 抛弃了 POSIX 文件系统的目录结构，可以在内存中保存 Photo ID 到卷中偏移的映射，接收到读请求时直接通过 Photo ID 查找到对应的偏移读取即可。
 
 详细的物理卷结构和 needle 的 metadata 见 Figure 5 和 Table 1：
-![](images/Screenshot_20230709_182909.png)
+![](./images/screenshot_20230709_182909.png)
 Haystack 中的物理卷是 append-only 的，以浪费一定存储空间为代价换取设计和实现的简单。在 append-only 的情况下，Haystack 这样处理写和删除操作：
 - 写操作：附加一个新的 needle 到卷。
 	- 写入到另一个逻辑卷：Directory 负载更新元数据，确保将来从保存有新数据的逻辑卷访问。
@@ -171,4 +165,4 @@ Store 附加 needle 时，异步地在索引文件中附加记录（needle 的�
 
 
 ## References
-*Finding a needle in haystack Facebook's photo storage.pdf*
+[Finding a needle in haystack Facebook's photo storage.pdf](zotero://open-pdf/library/items/DID9KJ2D)

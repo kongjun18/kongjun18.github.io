@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】In Search of an Understandable Consensus Algorithm"
-date: "2023-11-01"
-keywords: ""
+title: "[Paper Note] In Search of an Understandable Consensus Algorithm"
+date: 2023-11-01
+mdate: 2025-05-22T01:50:34-07:00
 comment: true
 weight: 0
 author:
@@ -10,26 +10,21 @@ author:
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
 
-tags:
-- Distributed System
-
 categories:
-- Distributed System
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: 
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -38,6 +33,7 @@ repost:
   enable: true
   url: ""
 ---
+
 
 - [x] 为什么 Leader 要提交之前任期的日志？
 
@@ -89,6 +85,21 @@ repost:
 
 	存在，Raft 用于半同步环境。broadcastTime ≪ electionTimeout ≪ MTBF。
 
+Q: The last two paragraphs of section 6 discuss removed servers interfering with the cluster by trying to get elected even though they've been removed from the configuration. Wouldn't a simpler solution be to require servers to be shut down when they leave the configuration? It seems that leaving the cluster implies that a server can't send or receive RPCs to the rest of the cluster anymore, but the paper doesn't assume that. Why not? Why can't you assume that the servers will shut down right away?
+
+A: I think the immediate problem is that the Section 6 protocol doesn't commit Cnew to the old servers, it only commits Cnew to the servers in Cnew. So the servers that are not in Cnew never learn when Cnew takes over from Cold,new.
+
+The paper does say this:
+
+When the new configuration has been committed under the rules of Cnew, the old configuration is irrelevant and servers not in the new configuration can be shut down.
+
+So perhaps the problem only exists during the period of time between the configuration change and when an administrator shuts down the old servers. I don't know why they don't have a more automated scheme.
+
+
+Q: I don't disagree that having servers deny RequestVotes that are less than the minimum election timeout from the last heartbeat is a good idea (it helps prevent unnecessary elections in general), but why did they choose that method specifically to prevent servers not in a configuration running for election? It seems like it would make more sense to check if a given server is in the current configuration. E.g., in the lab code we are using, each server has the RPC addresses of all the servers (in the current configuration?), and so should be able to check if a requestVote RPC came from a valid (in-configuration) server, no?
+
+A: I agree that the paper's design seems a little awkward, and I don't know why they designed it that way. Your idea seems like a reasonable starting pointhttp://nil.csail.mit.edu/6.824/2022/papers/raft2-faq.txt. One complication is that there may be situations in which a server in Cnew is leader during the joint consensus phase, but at that time some servers in Cold may not know about the joint consensus phase (i.e. they only know about Cold, not Cold,new); we would not want the latter servers to ignore the legitimate leader.
+
 - [x] 何种情况下跟随者接收到的快照是它的日志的前缀？
 
 	当 RPC 发生乱序时。领导者先发送索引 100 上的快照，再发送 110 上的快照。由于网络乱序，110 上的快照先到达。
@@ -105,7 +116,7 @@ repost:
 	>Auth requests with a `currentEpoch` that is less than the master `currentEpoch` are ignored. Because of this the master reply will always have the same `currentEpoch` as the auth request. If the same replica asks again to be voted, incrementing the `currentEpoch`, it is guaranteed that an old delayed reply from the master can not be accepted for the new vote.
 
 ## References
-- *In Search of an Understandable Consensus Algorithm*
+- [In Search of an Understandable Consensus Algorithm](zotero://open-pdf/library/items/T8M4S9KN)
 - [MIT 6.824 2022 Lecture 5: Raft (1)](http://nil.csail.mit.edu/6.824/2022/notes/l-raft.txt)
 - [MIT 6.824 2022 Lecture 7: Raft (2)](http://nil.csail.mit.edu/6.824/2022/notes/l-raft2.txt)
 - [MIT 6.824 Raft FAQ](http://nil.csail.mit.edu/6.824/2022/papers/raft-faq.txt)

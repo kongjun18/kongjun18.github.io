@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Efficient Exposure of Partial Failure Bugs in Distributed Systems with Inferred Abstract States"
-date: "2024-07-31"
-keywords: ""
+title: "[Paper Note] Efficient Exposure of Partial Failure Bugs in Distributed Systems with Inferred Abstract States"
+date: 2024-07-31
+mdate: 2025-09-12T17:58:56-07:00
 comment: true
 weight: 0
 author:
@@ -9,28 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
-- Reliability
 
 categories:
-- Distributed System
-- Reliability
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/efficient-exposure-of-partial-failure-bugs-in-distributed-systems-with-inferred-abstract-states-figure-7.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -39,6 +33,7 @@ repost:
   enable: true
   url: ""
 ---
+
 ## Motivation
 目前分布式系统中的故障注入不够高效，主要是由于以下原因：
 1. 许多故障是 partial failure。发生故障时，系统仍然在运行，只是系统的某个组件或服务受影响。
@@ -60,13 +55,13 @@ if (count > threshold) {
 }
 ```
 显然，`count`是其中最关键的状态变量，但直接追踪`count`的状态迁移没有意义。`count`可能递增无数次，这会产生无数个状态。实际上，真正让程序状态发生迁移（从`serve()`迁移到`snapshot()`）的不是简单的`count++`，而是`count > threshold`。因此，静态分析实际上要追踪的是 ASV(Abstract State Variable)，即程序的某个执行阶段，驱动状态迁移的是代码中的`if <condition>`。
-![](images/Efficient Exposure of Partial Failure Bugs in Distributed Systems with Inferred Abstract States Figure-7.png)
+![](./images/efficient-exposure-of-partial-failure-bugs-in-distributed-systems-with-inferred-abstract-states-figure-7.png)
 虽然论文的原理并不局限于 Java 编写的分布式系统，但实现的故障注入框架 Legolas 针对的是 Java 的分布式系统。Legolas 静态分析的对象不是整个程序，而是 task class 和它的入口函数。通常，Java 中一个任务（线程）会被实现为一个继承`Thread`的类，任务逻辑写在入口函数`run`中。因此 Legolas 可以很方便地通过 task class 找到系统中的任务，并且实验表明只针对这些 task class 的入口函数进行 ASV 的推导就已经能指导 Legolas 故障。
 
 ## 故障注入点选择策略：bsrr（budgeted-state-round-robin）
 Legolas 会在程序进入状态的位置插入一条指令，用于通知 Legolas 程序状态的迁移。
 
-![](images/Efficient Exposure of Partial Failure Bugs in Distributed Systems with Inferred Abstract States Figure-8.png)
+![](./images/efficient-exposure-of-partial-failure-bugs-in-distributed-systems-with-inferred-abstract-states-figure-8.png)
 推导出 ASV 后，Legolas 还面临在哪个状态中以及在状态的哪个位置注入故障。这里有几种策略：
 1. new-state-only，即只在迁移到新状态时注入故障。
 2. random，即随机注入故障。
@@ -85,7 +80,7 @@ bsrr 还用 budget 和随机数，调整一轮中目标状态被注入故障的�
 - 随机数：决定了目标状态中被注入故障的位置。注入故障前 Legolas 会生成一个随机数，并和提前设置好的数值（阈值）比较，只有当随机数小于阈值时才注入故障。阈值太小，可能会由于随机数小于阈值的概率太小而浪费一轮测试；阈值太大，会导致随机数小于阈值的概率太大，总是批准状态前期的故障注入请求。因此，阈值的设置目标是保证每个状态都能有至少一次故障注入，并且注入的时机既不太早，也不太晚。论文给出的阈值设置公式与状态出现的次数和概率有关，并且会在每一轮开始时初始化。
 
 伪代码如下，其中第 3-10 行 rotate `rrl`，第 11-13 行删除 budget 耗尽的状态。
-![](images/Efficient Exposure of Partial Failure Bugs in Distributed Systems with Inferred Abstract States psedocode.png)
+![](./images/efficient-exposure-of-partial-failure-bugs-in-distributed-systems-with-inferred-abstract-states-psedocode.png)
 ## 故障注入
 
 论文通过在故障注入点插入 injection hook 的方式注入故障，当程序执行到故障注入点时，injection hook 向 Legolas controller 发送故障注入请求，如果请求被允许，则注入故障。
@@ -128,6 +123,7 @@ bsrr 还用 budget 和随机数，调整一轮中目标状态被注入故障的�
 
 ## Q&A
 - [x] 为什么需要 ASV？
+
 因为希望更有意义地划分代码。简单的 SV 会导致过多的状态迁移，无法用来指导故障注入。ASV 将 task 划分成多个阶段，粒度正合适，可以用来知道故障注入点的选择。
 
 ASV 可以在两个方面帮助选择故障注入点：
@@ -135,6 +131,7 @@ ASV 可以在两个方面帮助选择故障注入点：
 2. 跳过大概率不出错的位置。
 
 - [x] 为什么将 non-static 且 non-constant 的成员变量视作 SV？
+
 这样的设计简单，并且在 Java OOP 的编程范式下很有效。
 
 局部变量其实也可能是 SV，例如某些函数可以用局部变量记录状态迁移。但是在  Java OOP 的编程范式下，任务通常会被实现为一个类，状态被实现为成员变量。
@@ -145,6 +142,7 @@ ASV 可以在两个方面帮助选择故障注入点：
 每一轮的目标状态并不是在静态分析时就决定好的，而是在测试时动态决定的。初始时 rrl 为空，程序运行过程中服务器会记下来程序运行经过的状态，状态记为 s0、s1 直至 sN，而不是提前预设要一个次序。测试的 workload 每一轮应该都是相同的，所以每一轮测试走过的状态应该是相同的。因此，每一轮测试的目标状态都是会达到的。
 
 - [x] bsrr 算法逻辑
+
 测试开始前:
 1. rotate rrl。最前面的放坐后面。
 2. 清理 budget 用完的 ASV。
@@ -152,13 +150,20 @@ ASV 可以在两个方面帮助选择故障注入点：
 每次接受到注入请求：
 1. 状态第一次碰到就 push 到 rrl 末尾。
 2. 如果状态刚好是本轮目标状态，则按概率批准。
+
 - [x] 客户端不发送 ASV，服务器怎么知道当前客户端处于哪个 ASV？
+
 论文说客户端进入新 ASV 时，会告知服务器。猜测服务器提前记录了程序的状态机，只需要客户端在进入新 ASV时通知一下，就能追踪到程序最新的状态。
+
 - [x] ASV 是不是越多越细越好？
+
 ASV 用来将相同的效果的故障注入合并在一起，过多的 ASV 会导致过大的注入空间，反而违背了 ASV 的初心。
 - [X] 伪阳性的来源？
+
 - failure checker 判定标准不完善。
 - 构造出了不合法的异常。
 - 构造出了实际上不可能发生的异常。
 
 
+---
+## References

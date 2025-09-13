@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Linux block IO introducing multi-queue SSD access on multi-core systems"
-date: "2024-03-06"
-keywords: ""
+title: "[Paper Note] Linux block IO introducing multi-queue SSD access on multi-core systems"
+date: 2024-03-06
+mdate: 2025-09-12T18:12:50-07:00
 comment: true
 weight: 0
 author:
@@ -9,28 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Linux
-- Storage
 
 categories:
-- Linux
-- Storage
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/pasted-image-20250912181245.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -39,8 +33,11 @@ repost:
   enable: true
   url: ""
 ---
+
 ## 背景
 目前 SSD 的 iops 已经能够达到百万 iops，但 Linux block layer 无法达到 iops。Linux block layer 成为了高速存储设备的性能瓶颈，为了绕开龟速的 block layer，许多开发者使用 bypass 技术在用户态进行 IO。
+
+![](./images/pasted-image-20250912181245.png)
 
 论文剖析了当前的 Linux block layer 设计，指出其性能瓶颈，并提出了面向多核系统和 SSD 的多队列设计。
 
@@ -67,3 +64,6 @@ software staging queue 和 hardware dispatch queue 间存在映射关系。理�
 ## 总结
 多队列设计成功突破了百万 iops，让 Linux 跟上了 SSD 的脚步。新的多队列设计并不仅仅是把单一队列改成了多队列，从面向单核 HDD 设计转向面向多核 SSD 设计，做了许多重构以面向现代 SSD 的特性。其中一大改变就是不再进行复杂的 IO 调度，转而使用 FIFO 策略，将 IO 调度交给 SSD FTL 完成。
 
+---
+## References
+- [Linux block IO: introducing multi-queue SSD access on multi-core systems](zotero://open-pdf/library/items/MN7WU88B)

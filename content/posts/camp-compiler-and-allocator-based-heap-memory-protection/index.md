@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】CAMP Compiler and Allocator-based Heap Memory Protection"
-date: "2023-11-20"
-keywords: ""
+title: "[Paper Note] CAMP Compiler and Allocator-based Heap Memory Protection"
+date: 2023-11-20
+mdate: 2025-09-12T18:15:23-07:00
 comment: true
 weight: 0
 author:
@@ -9,26 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Security
 
 categories:
-- Security
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/pasted-image-20250912181506.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -37,6 +33,7 @@ repost:
   enable: true
   url: ""
 ---
+
 
 ## 背景
 以往的内存安全 bug 检测方法，通常由编译器或内存分配器独立进行。编译器只理解程序语义，但无法在运行时工作；内存分配器只能在运行时工作，却无法感知程序语义。本文让编译器和内存分配器协同工作检测内存安全 bug。
@@ -47,6 +44,8 @@ repost:
 论文主要面向 C/C++，并且要求源程序不存在整型到指针的转换。
 ## 方法
 编译器在编译期插入内存检测指令和进行逃逸分析，内存分配器在运行时记录内存分配和回收信息，程序运行时执行到内存检测指令，完成内存安全 bug 检测。
+
+![](./images/pasted-image-20250912181506.png)
 
 buffer overflow 检测逻辑：
 - 内存分配器运行时记录已分配的内存区域。
@@ -59,6 +58,8 @@ use-after-free 检测逻辑：
 - 运行时逃逸指令将上述两个参数（point-to 关系，即两个指针指向同一内存）记录到内存分配器中。
 - 内存分配器 free 时，将所有指向同一缓冲区的指针指向一块特殊的区域。
 - 用户 use-after-free 时，访问该特殊区域，程序终止。
+
+
 
 ## 实现
 
@@ -99,7 +100,6 @@ CAMP 内存分配器分配内存时会记下该 span 的位置和 span 中的元
         - 检测同一内存区域的多个地址（编译器确定）
 
     - 合并运行时调用：检测同一内存区域的多个地址（运行时确定），直接获取该区域的边界，判断地址是否超过避免。从而避免每次 range check 都要进入 library 获取内存区域边界。
-
     内存分配器：分离链表实现 O(1) 的查找
 
 - [x] 为什么要设置 point-to cache，point-to 关系先记录在 cache 中，满了批量再记录到内存分配器的 point-to 链表中？
@@ -111,3 +111,6 @@ CAMP 内存分配器分配内存时会记下该 span 的位置和 span 中的元
     in-bound overflow 指发生在内存块内，程序分配对象外的访问。例如，程序分配一个 16 字节的数组，但内存分配器分配了 32 的内存，如果访问发生在数组外内存块内就发生了 in-bound overflow。in-bound overflow 会修改对象外的数据，可能是内存分配器自己的元数据。
 
 
+---
+## References
+- [CAMP: Compiler and Allocator-based Heap Memory Protection](zotero://open-pdf/library/items/72QACGLW)

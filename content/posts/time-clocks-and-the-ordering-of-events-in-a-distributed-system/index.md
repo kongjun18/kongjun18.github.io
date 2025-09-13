@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Time, clocks, and the ordering of events in a distributed system"
-date: "2023-11-11"
-keywords: ""
+title: "[Paper Note] Time, clocks, and the ordering of events in a distributed system"
+date: 2023-11-11
+mdate: 2025-09-12T18:17:16-07:00
 comment: true
 weight: 0
 author:
@@ -9,21 +9,17 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
 
 categories:
-- Distributed System
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: 
 
 toc:
   enable: true
@@ -37,6 +33,7 @@ repost:
   enable: true
   url: ""
 ---
+
 
 ## 驱动
 
@@ -133,7 +130,7 @@ Lamport 逻辑时钟的缺陷在于无法用逻辑时钟描述事件在 happens-
 
 
 ## References
-- *Time, clocks, and the ordering of events in a distributed system*
+- [Time, clocks, and the ordering of events in a distributed system](zotero://open-pdf/library/items/Z85INKVC)
 - *计算机的时钟（二）：Lamport逻辑时钟 - Yang Blog*
 - https://www.cs.princeton.edu/courses/archive/fall19/cos418/docs/L4-time.pdf
 - http://yang.observer/2020/09/12/vector-clock/

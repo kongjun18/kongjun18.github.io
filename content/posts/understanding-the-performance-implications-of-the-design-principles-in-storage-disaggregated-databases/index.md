@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Understanding the Performance Implications of the Design Principles in Storage-Disaggregated Databases"
-date: "2024-08-15"
-keywords: ""
+title: "[Paper Note] Understanding the Performance Implications of the Design Principles in Storage-Disaggregated Databases"
+date: 2024-08-15
+mdate: 2025-05-22T01:50:34-07:00
 comment: true
 weight: 0
 author:
@@ -9,30 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Database
-- Storage System
-- Distributed System
 
 categories:
-- Database
-- Storage System
-- Distributed System
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: 
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -42,12 +34,9 @@ repost:
   url: ""
 ---
 
-本论文从最基本的单体数据库出发，一步步推导出目前主流的架构设计，并详细对这些设计进行性能分析。
 
-对于我这种新人而言，跟着作者的思路走，像是一场思想旅行，打开了一扇大门。
+本论文从最基本的单体数据库出发，一步步推导出目前主流的架构设计，并详细对这些设计进行性能分析。对于我这种新人而言，跟这作者的思路走，像是一场思想旅行，打开了一扇大门。
 
-
-## Q&A
 
 - [x] 论文针对哪种类型的数据库？
 

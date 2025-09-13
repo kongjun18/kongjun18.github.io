@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】Ceph reliable, scalable, and high-performance distributed storage"
-date: "2023-09-06"
-keywords: ""
+title: "[Paper Note] Ceph reliable, scalable, and high-performance distributed storage"
+date: 2023-09-06
+mdate: 2025-09-12T18:34:35-07:00
 comment: true
 weight: 0
 author:
@@ -9,28 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
-- Storage
 
 categories:
-- Distributed System
-- Storage
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.webp
 - name: featured-image-preview
-  src: images/featured-image.webp
+  src: images/ceph-architecture.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -39,6 +33,8 @@ repost:
   enable: true
   url: ""
 ---
+
+## 修改（TODO）
 ## 背景
 
 Ceph 是一个高性能、可靠的、可拓展的分布式文件系统。Ceph 最主要的目标是可拓展性，即如何使得文件系统支持任意多的数据量。
@@ -54,7 +50,7 @@ Ceph 面临以下难题：
 
 
 ## 设计
-元数据管理是实现高性能分布式文件系统的一大难点，元数据操作甚至占典型工作负载的 50。由于元数据存在较多的依赖，导致无法像文件 IO 一样水平拓展。此外，POSIX 的 per-file metadata 在小文件场景下海限制了存储利用率。*Finding a needle in haystack Facebook's photo storage*使用小文件聚合的方式减少元数据带来的磁盘 IO。*The Google file system*虽然提供了命名空间的抽象，但实现上改为了 key，这极大地减少了锁争用，而且简化了垃圾回收。
+元数据管理是实现高性能分布式文件系统的一大难点，元数据操作甚至占典型工作负载的 50。由于元数据存在较多的依赖，导致无法像文件 IO 一样水平拓展。此外，POSIX 的 per-file metadata 在小文件场景下海限制了存储利用率。[Finding a needle in haystack Facebook's photo storage](https://kongjun18.github.io/posts/finding-a-needle-in-haystack-facebooks-photo-storage)使用小文件聚合的方式减少元数据带来的磁盘 IO。*The Google file system*虽然提供了命名空间的抽象，但实现上改为了 key，这极大地减少了锁争用，而且简化了垃圾回收。
 
 文件系统难以实现高拓展性的一大根源在于元数据和数据的耦合，为了管理数据，必须管理大量的元数据，使得系统难以拓展。典型的例子是传统文件系统使用的分配表，分配回收甚至是访问文件都需要先访问分配表。
 
@@ -64,8 +60,7 @@ Ceph 通过最大程度解耦数据和元数据实现高拓展性。Ceph 专门�
 
 Ceph 由 client、metadata cluster 和 object storage cluster 三部分组成。其中 client 是一个 fuse 文件系统；metadata cluster 负责管理 metadata；object storage clsuter 是一个对象存储系统，存储整个文件系统的数据（包括 metadata cluster 的日志等）。
 
-![](images/Ceph-architecture.png)
-
+![](./images/ceph-architecture.png)
 Ceph 的架构图清晰地体现了数据和元数据管理的分离，数据不再是传统文件系统中依赖于元数据管理的死物，而是一个智能（原文指对象存储设备具有 CPU、内存等组件，实际上指对象存储系统可以独立进行数据复制等工作）的对象存储系统，利用对象存储的拓展性解决数据的可拓展性，之后 Ceph 的核心问题就是如何进行高效的元数据管理。
 
 客户端和服务端紧密协作实现 POSIX 文件系统，此外还提供了一致性更加松散的非 POSIX 接口以服务高性能编程的需求。
@@ -83,7 +78,6 @@ Object Storage Cluster 使用 *CRUSH: Controlled, scalable, decentralized placem
 
 #### 元数据操作一致性
 对于命名空间操作，Ceph 仍然保持比较高的一致性。但对于 readdir 操作，出于局部性考虑（readdir 操作通常会连续读取目录的条目），Ceph 选择同时获取整个目录的条目，以牺牲一定的一致性（客户端看到过期的目录结构）为代价，获得更高的性能。
-
 > [!QUESTION] 为什么要为 readdir 开后门？
 > readdir 的典型操作是`ls -al`。readdir 非常影响性能，但 readdir 具有局部性，一次获取大量目录条目（dentry），工作负载大概率会在之后使用到这些数据。https://github.com/kahing/goofys 之类的 S3-backend 也要专门利用局部性优化 readdir。
 
@@ -114,22 +108,18 @@ Ceph 对热点的处理方式如下：
 
 #### 动态子树划分
 面对规模庞大到无法用单机内存存储的海量元数，分布式文件系统选择将元数据分区管理。常规的做法有静态子树划分和基于哈希的划分，静态子树划分无法使用动态工作负载，基于哈希的划分会丧失目录的局部性。
-
-![](images/Ceph-dynamic-subtree.png)
-
+![](./images/ceph-dynamic-subtree.png)
 Ceph 认为在大型分布式文件系统是增量构建的，工作负载总是动态的，因此上面两种方法都无法满足需求。Ceph 使用 *Dynamic metadata management for petabyte-scale file systems* 的动态子树划分方法服务动态工作负载，文件命名空间被动态地划分为多个子树并存储在不同的 MDS 中。此外，Ceph 将元数据进一步划分成不同特性的多个类别，对它们使用不同的策略，以降低锁争用和实现一致性的成本。例如，Ceph 将 inode 的信息划分为安全（所有者等）、文件（大小、mtime等）和不可变信息（inode 编号等），访问不可变信息显然不用加锁，安全和文件信息也是用锁争用较少的访问模式。
 
 ### Object Storage Cluster：分布式对象存储
 Ceph 的对象存储称为 RADOS(Ceph’s Reliable Autonomic Distributed Object Store)，CADOS 以分布式的方式实现存储容量和总体性的线性拓展。
-
-![](images/Ceph-CRUSH.png)
-
+![](./images/ceph-crush.png)
 #### CRUSH: Controlled Replication Under Scalable Hashing
-Ceph 完全抛弃了传统的分配表，使用 CRUSH 计算对象的存储位置。在 MDS 中，文件按照 inode 和条带编号映射为对象，对象使用简单的哈希函数影射到 PG(placement group)。对象存储集群使用 CRUSH 将 PG 影射到一个 OSD，一个 OSD 可能会被影射到不同的 PG，Ceph 通常配置为一个 OSD 平均被影射到 100 个 PG。
+	Ceph 完全抛弃了传统的分配表，使用 CRUSH 计算对象的存储位置。在 MDS 中，文件按照 inode 和条带编号映射为对象，对象使用简单的哈希函数影射到 PG(placement group)。对象存储集群使用 CRUSH 将 PG 影射到一个 OSD，一个 OSD 可能会被影射到不同的 PG，Ceph 通常配置为一个 OSD 平均被影射到 100 个 PG。
 
 >[!NOTE] 一个 OSD 可以存储很多对象，因此一个 OSD 可以被影射到不同的 PG。
 
-CRUSH 的一大特性的，只要给定 PG 和 Cluster map，就可以计算出 PG 对应的 OSD 列表。Cluster map 层次化地描述了集群中 OSD 的布局，如机房中机架的分布情况，机架中机器等分布情况等等。Cluster map 标示了集群中的故障域，因此对分布式系统实现容错至关重要。CRUSH 可以根据放置规则（placement rule）将对象分配到不同级别的容错域。*f4 Facebook’s Warm BLOB Storage System* 详细介绍了一种充分利用容错域的容错策略。
+CRUSH 的一大特性的，只要给定 PG 和 Cluster map，就可以计算出 PG 对应的 OSD 列表。Cluster map 层次化地描述了集群中 OSD 的布局，如机房中机架的分布情况，机架中机器等分布情况等等。Cluster map 标示了集群中的故障域，因此对分布式系统实现容错至关重要。CRUSH 可以根据放置规则（placement rule）将对象分配到不同级别的容错域。[f4 Facebook’s Warm BLOB Storage System](https://kongjun18.github.io/posts/f4-facebook’s-warm-blob-storage-system) 详细介绍了一种充分利用容错域的容错策略。
 
 RADOS 的一大核心问题就是如何维护 Cluster map，RADOS 使用完全分布式的算法在集群中扩散最新的 cluster map。Ceph 设置一个小的的 monitor 集群收集故障报告，并维护一致的 cluster map。由于故障或加入新节点而导致 cluster map 变化时，将 cluster map 增量发送给受影响的节点，这些节点通过 OSD 间连接将其扩散到整个集群。
 
@@ -143,17 +133,21 @@ PG 的 OSD 列表中第一个 OSD 是 primary，其他为 secondary，复制使�
 Ceph 解耦写的同步（别的客户端能读取到写入）和安全（持久性存储）。传统的设计是每个副本均 commit 后，primary 返回 ACK，客户端 write 返回，数据被持久性存储并且其他客户端能读取到写入。Ceph 修改了客户端接口，客户端 write 返回后只保证其他客户端能读取到写入，过段时间再保证持久性。OSD 接收到数据后，只将数据写入到内存缓冲区。primary 在所有副本均接受数据并应用于缓存区后返回 write ACK，客户端 write 返回，但缓存 write 的数据。primary 确保部分副本 commit，能容忍一个 OSD 故障后返回 commit，客户端再丢弃自己缓存的 write 数据。
 
 #### 故障检测
-
 - peer-to-peer monitor：PG 是多副本的，primary 和 secondary 之间的复制消息通信可以作为心跳检测故障，只在一段时间没有复制相关的消息时主动发送 ping。
-
 - 区分无法到达和未分配数据两种 liveness 状态，无法到达的节点标记为 down，未分配数据的节点标记为 out，只有 out 时才需要 re-replication。
-
 #### 恢复和集群更新
 
 OSD 为对象维护一个版本号和 PG 更新日志。
 当 OSD 收到更新后的 cluster map，它使用 CRUSH 计算自己是否仍然在 PG 中，以及自己是 primary 还是 secondary。primary 具有绝对权威，负责裁定当前正确的 PG 内容。如果恢复的节点不是 primary，它要向 primary 发送自己的信息；如果恢复的节点是 primary，它要收集其他伙伴的版本号，如果 primary 缺少 PG 最近的更新，则从它的伙伴获取更新。等到 PG 中所有的 OSD 都对 PG 内容达成共识，再开始服务用户请求。
 
 
+## Thoughts
+
+- CRUSH 将文件划分成多个 object，带来的问题小文件和乱序 IO 的问题。
+- CRUSH 让客户端绕开中心化管理节点获取文件所在的 osd，metadata 只存储文件系统元数据。[Haystack](https://kongjun18.github.io/posts/finding-a-needle-in-haystack-facebooks-photo-storage) 的 ID 也是类似的思路。
 
 
+---
 
+## References
+- *Ceph: reliable, scalable, and high-performance distributed storage*

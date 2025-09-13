@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】The design of a practical system for fault-tolerant virtual machines"
-date: "2023-11-11"
-keywords: ""
+title: "[Paper Note] The design of a practical system for fault-tolerant virtual machines"
+date: 2023-11-11
+mdate: 2025-09-12T18:16:02-07:00
 comment: true
 weight: 0
 author:
@@ -9,26 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Distributed System
 
 categories:
-- Distributed System
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/vmware-basic-ft-configuration.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -37,6 +33,7 @@ repost:
   enable: true
   url: ""
 ---
+
 
 ## 背景
 
@@ -50,7 +47,8 @@ VMware FT 使用状态转移（state transfer）策略实现容错。FT 在主�
 
 VMware FT 的架构如图所示。主副本共同访问一个共享磁盘，主虚拟机的状态通过 logging channel 发送到副本，副本接收后重做。所有输入都通过 FT 传输给主虚拟机，并且只有主虚拟机的输出能够发送给外部世界。
 
-![](images/VMware-basic-FT-configuration.png)
+![](./images/vmware-basic-ft-configuration.png)
+
 ## 同步
 实现容错的一大难点是如何确保主副本状态一致，这也是论文主要解决的问题。 虚拟机中发生的所有操作和事件可以分成一下两类：
 1. deterministic：对于通常的输入和操作，总是产生同样的结果。例如加减指令 add/sub。
@@ -123,6 +121,6 @@ VMware FT 利用 VMware VMotion 技术实现了故障自动恢复。VMware VMoti
 
 
 ## References
-- *The design of a practical system for fault-tolerant virtual machines.pdf*
+- [The design of a practical system for fault-tolerant virtual machines.pdf](zotero://open-pdf/library/items/9BW6KNH2)
 - [MIT 6.824 2022 Lecture 4: Primary/Backup Replication](http://nil.csail.mit.edu/6.824/2022/notes/l-vm-ft.txt)
 - [MIT 6.824 2022 Primary/Backup Replication FAQ](http://nil.csail.mit.edu/6.824/2022/papers/tour-faq.txt)

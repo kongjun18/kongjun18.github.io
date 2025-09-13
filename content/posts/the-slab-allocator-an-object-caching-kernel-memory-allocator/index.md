@@ -1,7 +1,7 @@
 ---
-title: "【论文阅读】The Slab Allocator An Object-Caching Kernel Memory Allocator"
-date: "2023-04-03"
-keywords: ""
+title: "[Paper Note] The Slab Allocator An Object-Caching Kernel Memory Allocator"
+date: 2023-04-03
+mdate: 2025-09-12T18:27:23-07:00
 comment: true
 weight: 0
 author:
@@ -9,26 +9,22 @@ author:
   link: "https://github.com/kongjun18"
   avatar: "/images/avatar.jpg"
 license: "All rights reserved"
-tags:
-- Allocator
 
 categories:
-- Allocator
+- Paper
 
 hiddenFromHomePage: false
 hiddenFromSearch: false
 
 summary: ""
 resources:
-- name: featured-image
-  src: images/featured-image.png
 - name: featured-image-preview
-  src: images/featured-image.png
+  src: images/client-server-architecture-of-slab-allocator.png
 
 toc:
   enable: true
 math:
-  enable: false
+  enable: true
 lightgallery: false
 seo:
   images: []
@@ -37,6 +33,8 @@ repost:
   enable: true
   url: ""
 ---
+
+
 ## 原理
 
 许多情况下，对象的构造和析构成本原大于内存的分配和回收。因此，既要优化内存分配，也要降低对象的构造/析构成本。
@@ -112,7 +110,7 @@ void kmem_cache_destroy(struct kmem_cache *cp);
 - cache 间无共享状态
   接口反映了这一点，所有接口第一个参数都是 cache 指针。
 
-  ![](images/client-server-architecture-of-slab-allocator.png)
+  ![](./images/client-server-architecture-of-slab-allocator.png)
 
 ### Slab
 
@@ -191,7 +189,7 @@ slab allocator 中实际上有两大类空闲链表，即 slab 空闲链表和 s
 
 slab allocator 通过 slab coloring（slab 染色）解决解决这两个问题。染色即分配给 slab 一个 buffer 起始偏移，不同的 slab 有不同的颜色（buffer 起始偏移不同）。染色试图让不同 slab 的对象放置到不同的 cache line 中，避免 conflict miss；也试图让内存访问分布到不同的总线。
 
-## F&Q
+## Questions & Answers
 
 - [x] `kmem_cache_create()`中对象的构造函数、析构函数参数只有对象大小，这种接口足以支持对象的构造和析构？
 
@@ -206,3 +204,8 @@ slab allocator 通过 slab coloring（slab 染色）解决解决这两个问题�
   通过移动起始位置，降低不同 slab 的 object 放到相同 cache line 中的概率。
 
 
+---
+
+## References
+
+- *The Slab Allocator An Object-Caching Kernel Memory Allocator.pdf*
