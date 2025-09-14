@@ -1,7 +1,7 @@
 ---
 title: "[Paper Note] IMPRESS An Importance-Informed Multi-Tier Prefix KV Storage System for Large Language Model Inference"
 date: 2025-09-06
-mdate: 2025-09-12T14:14:52-07:00
+mdate: 2025-09-13T17:31:31-07:00
 comment: true
 weight: 0
 author:
@@ -35,14 +35,10 @@ repost:
 ---
 
 
-## TODO
-- [ ] 澄清 importance
-- [ ] 澄清为什么 impotrance 变化但可以存储在 disk
-- [ ] 澄清 这是 transit storage
 ## Motivation
-Existing works showe that not all KVs are created equal: few important KVs contributes most to the Transformer inference results. H2O demonstrates that only feeding vital tokens to LLM can achieve almost the same model accuracy and lower latency.
+Existing works show that not all KVs are created equal: few important KVs that have higher attention scores contribute most to the Transformer inference results. [H2O Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models](https://kongjun18.github.io/posts/h2o-heavy-hitter-oracle-for-efficient-generative-inference-of-large-language-models) demonstrates that only feeding vital tokens to LLM can achieve almost the same model accuracy.
 
-Now that the disk access is expensive and can not be hidden easily, we can only load important tokens to reduce IO overhead by decreasing the amount of dataset. This paper leverage this insight and  proposes a importance-informed multi-tier KV cache storage system. There are three major issues need to be solved :
+Now that the disk access is expensive and can not be hidden easily, we can only load important tokens to reduce IO overhead by decreasing the amount of data to be transferred This paper leverage this insight and  proposes a importance-informed multi-tier KV cache storage system. There are three major issues need to be solved :
 - Original importance identification algorithm is cumbersome and IO-inefficient, which is ill-suitable for storage system on SSD. How to propose an IO-efficient identification algorithm?
 - How to transform from importance-agnostic storage to importance-aware storage?
 	- How to organize KV caches on SSD?
@@ -82,13 +78,17 @@ The benchmark shows the IMPRESS can achieve up to 2.8x performance improvement c
 Note, all of the aforementioned techniques contribute to the performance improvement but the impacts vary across different models and datasets. For the OPT-30B model on the RTE dataset, the contributions of the three techniques to the performance improvement are 60%, 30%, and 10%, respectively. However, for the OPT-13B model on the COPA dataset, the contributions change to 36%, 8%, and 56%.
 
 ## Thoughts
-This work is orthogonal to other works, so it may be widely adopted in the future.
+Attention scores change at each iteration, so it is impossible to leverage this insight to build a persistent distributed KV cache storage system.
 
+## Questions & Answers
 
+Attention scores change at each iteration, why IMPRESS is able to store KV cache based on theirs importance?
+
+IMPRESS is based on average importance instead of instant importance. Besides, IMPRESS is actually a single-node offloaded caching system rather than persistent storage.
 
 ---
 ## References
-- IMPRESS: An Importance-Informed Multi-Tier Prefix KV Storage System for Large Language Model Inference
 - [Attentionstore Cost-effective attention reuse across multi-turn conversations in large language model serving](https://kongjun18.github.io/posts/attentionstore-cost-effective-attention-reuse-across-multi-turn-conversations-in-large-language-model-serving)
 - [SGLang Efficient Execution of Structured Language Model Programs](https://kongjun18.github.io/posts/sglang-efficient-execution-of-structured-language-model-programs)
 - *Mooncake Trading more storage for less computation—a KVCache-centric architecture for serving LLM chatbot*
+- [H2O Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models](https://kongjun18.github.io/posts/h2o-heavy-hitter-oracle-for-efficient-generative-inference-of-large-language-models)
