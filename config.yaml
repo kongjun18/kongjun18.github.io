@@ -21,6 +21,39 @@ params: # 覆盖默认选项
     license: '<a rel="license external nofollow noopener noreferrer" href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank">CC BY-NC 4.0</a>'
     since: 2022 # 网站创建时间
   page:
+    math:
+      enable: true
+      type: "mathjax"
+      mathjax:
+        cdn: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+        packages:
+          # '[+]': ['configmacros']
+        macros:
+          # "bold": ["{\\bf #1}", 1]   # usage: $\bold{math}$
+        loader:
+          load:
+            - 'ui/safe'
+          paths:
+            # custom: "https://cdn.jsdelivr.net/gh/sonoisa/XyJax-v3@3.0.1/build/"
+          # more loader config e.g source, dependencies, provides etc.
+        options:
+          enableMenu: true
+          skipHtmlTags:
+            - "script"
+            - "noscript"
+            - "style"
+            - "textarea"
+            - "pre"
+            - "code"
+            - "math"
+            - "select"
+            - "option"
+            - "mjx-container"
+          ignoreHtmlClass: "mathjax_ignore"
+          includeHtmlTags:
+            # "#comment": ""
+            # br: "\n"
+            # wbr: ""
     autoBookmark: true # 关闭页面时保存阅读进度
     gravatarForce: false
     code:
@@ -99,6 +132,18 @@ params: # 覆盖默认选项
       ignoreLocation: false
       useExtendedSearch: false
       ignoreFieldNorm: false
+      markup:
+goldmark:
+  extensions:
+    passthrough:
+      enable: true
+      delimiters:
+        block:
+          - ['\[', '\]']
+          - ['$$', '$$']
+        inline:
+          - ['\(', '\)']
+          - ['$', '$']
 menu:
   main:
     - identifier: "posts"
