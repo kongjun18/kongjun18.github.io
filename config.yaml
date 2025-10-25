@@ -177,7 +177,7 @@ menu:
     - identifier: "about"
       pre: ""
       post: ""
-      name: "Biography"
+      name: "About"
       url: "/about/"
       title: ""
       weight: 5
