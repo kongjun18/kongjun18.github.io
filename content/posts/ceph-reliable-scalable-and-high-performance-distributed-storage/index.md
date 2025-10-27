@@ -1,7 +1,7 @@
 ---
 title: "[Paper Note] Ceph reliable, scalable, and high-performance distributed storage"
 date: 2023-09-06
-mdate: 2025-09-12T18:34:35-07:00
+mdate: 2025-10-27T16:03:41-07:00
 comment: true
 weight: 0
 author:
@@ -34,7 +34,6 @@ repost:
   url: ""
 ---
 
-## 修改（TODO）
 ## 背景
 
 Ceph 是一个高性能、可靠的、可拓展的分布式文件系统。Ceph 最主要的目标是可拓展性，即如何使得文件系统支持任意多的数据量。
