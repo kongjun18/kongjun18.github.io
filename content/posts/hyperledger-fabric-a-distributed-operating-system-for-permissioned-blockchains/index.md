@@ -1,7 +1,7 @@
 ---
 title: "[Paper Note] Hyperledger Fabric A Distributed Operating System for Permissioned Blockchains"
 date: 2025-10-25
-mdate: 2025-10-27T16:09:38-07:00
+mdate: 2025-10-27T16:27:07-07:00
 comment: true
 weight: 0
 author:
@@ -122,12 +122,16 @@ The permissioned blockchain serves as a *neutral third party platform* for organ
 ## Questions and Answers
 
 **What will happen if the malicious chaincode contains infinite loop?**
+
 The endorser can monitor the container and kills it.
 
+---
 **Is the CA is centralized?**
+
 Fabric adopts existing CA techniques, but there is no root CA. Instead, each organization has it's own CA. If a CA is tempter, it can be revoked to avoid further damage.
 
-**What is gossip and what it is used for?
+---
+**What is gossip and what it is used for?**
 
 Gossip is the message between peer nodes. Gossip is used to synchronize states peer to peer, such as ledger and the cluster view.
 
