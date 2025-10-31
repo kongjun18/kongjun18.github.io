@@ -19,7 +19,7 @@
 <p>
 <img class="lazyautosizes lazyloaded" src="/images/avatar.jpg" data-src="/images/avatar.jpg" data-srcset="/images/avatar.jpg, /images/avatar.jpg 1.5x, /images/avatar.jpg 2x" data-sizes="auto" alt="/images/avatar.jpg" title="/images/avatar.jpg" sizes="250px" srcset="/images/avatar.jpg, /images/avatar.jpg 1.5x, /images/avatar.jpg 2x" style="float:right;width:200px;height:200px;">
 
-I am a Ph.D. student supervised by ]Prof. Zhichao Cao](https://asu-idi.github.io/members/zhichao-cao.html) at the [Intelligent Data Infrastructure Lab](https://asu-idi.github.io/) at Arizona State University.
+I am a Ph.D. student supervised by [Prof. Zhichao Cao](https://asu-idi.github.io/members/zhichao-cao.html) at the [Intelligent Data Infrastructure Lab](https://asu-idi.github.io/) at Arizona State University.
 
 My research focuses on database systems and LLM inference.
 
