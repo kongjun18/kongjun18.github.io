@@ -64,7 +64,10 @@ cat "${note_path_file}" | while read -r note_path; do
 
                 # 2. 从Hugo文件中解析出date字段的字符串
                 hugo_cdate=$(grep -m 1 '^date:' "$hugo_file" | sed 's/date: *//' | sed 's/"//g')
-                hugo_mdate=${hugo_cdate:-$(grep -m 1 '^mdate:' "$hugo_file" | sed 's/mdate: *//' | sed 's/"//g')}
+                hugo_mdate=$(grep -m 1 '^mdate:' "$hugo_file" | sed 's/mdate: *//' | sed 's/"//g')
+                if [ -z "${hugo_mdate}" ]; then
+                    hugo_mdate=${hugo_cdate}
+                fi
 
                 if [ -n "$hugo_mdate" ]; then
                     # 3. 将Hugo的date字符串转换为时间戳 (秒)
