@@ -1,7 +1,7 @@
 ---
 title: "[Paper Note] Hyperledger Fabric A Distributed Operating System for Permissioned Blockchains"
 date: 2025-10-25
-mdate: 2025-10-27T16:27:07-07:00
+mdate: 2025-10-30T23:26:33-07:00
 comment: true
 weight: 0
 author:
@@ -37,36 +37,36 @@ repost:
 ## Motivation
 HyperLedger Fabric aims to implement a *permissioned* blockchain featuring:
 - General Programming Language
-- High Throughput 
+- High Throughput
 - No Cryptocurrency
 - Confidentiality
 
-General programming language and high throughput is not supported due to existing public block chains' *order-execute* model.Essentially, order-state model is a form of finite state machine replication (i.e. [Raft](https://kongjun18.github.io/posts/in-search-of-an-understandable-consensus-algorithm)). In this model, all nodes start from the same initial state and apply mutation logs in a global total order, ultimately achieve consensus (the same state). This model requires *deterministic execution*, or else different nodes executes the s,ame transaction get different results and thus lead to inconsistent states. To avoid no-deterministic behaviors, existing blockchains require domain-specific languages.
+General programming language and high throughput is not supported due to existing public block chains' *order-execute* model.Essentially, order-state model is a form of finite state machine replication (e.g. [Raft](https://kongjun18.github.io/posts/in-search-of-an-understandable-consensus-algorithm)). In this model, all nodes start from the same initial state and apply mutation logs in a global total order, ultimately achieve consensus (the same state). This model requires *deterministic execution*, or else different nodes executes the s,ame transaction get different results and thus lead to inconsistent states. To avoid no-deterministic behaviors, existing blockchains require domain-specific languages.
 
 ![](./images/pasted-image-20251027104717.png)
-Due to the openness nature of public blockchains, they have to employ economic deterrence mechanisms to mitigate potential denial-of-service attacks by requiring each transaction to pay a gas fee denominated in the network's native cryptocurrency. 
+Due to the openness nature of public blockchains, they have to employ economic deterrence mechanisms to mitigate potential denial-of-service attacks by requiring each transaction to pay a gas fee denominated in the network's native cryptocurrency.
 
 No cryptocurrency and confidentiality are easily to solve as the permissioned blockchain only allows authenticated users to participate and interact. Additional investigation is required for the first two goals. Analogous to database concurrency control, the order-execute model resembles lock-based concurrency, execution proceeds after ordering is determined. The corresponding solution is optimistic concurrency control (OCC) - execute-order-validate model.
 
 ## Architecture
 In a nutshell, a distributed application comprises:
-- A smart contract, called *chaincode*, which is a program written in general programming languages and execute in the execution phrase. System-administration tasks (i.e. validation) are implemented in *system chaincode*.
-- A *endorsement* policy, which is used in validation phrase. A chaincode is executed by multiple endorser nodes and the endorsement policy define a set of peers that are necessary for endorsement (i.e. three out of five).
+- A smart contract, called *chaincode*, which is a program written in general programming languages and execute in the execution phrase. System-administration tasks (e.g. validation) are implemented in *system chaincode*.
+- A *endorsement* policy, which is used in validation phrase. A chaincode is executed by multiple endorser nodes and the endorsement policy define a set of peers that are necessary for endorsement (e.g. three out of five).
 
 Nodes in the Fabric network take up one of three roles:
 - Clients summit transaction protocols, collect returned endorsements and broadcasts transactions.
 - Peer nodes execute proposals and validate transactions.
 - Ordering Service Nodes (OSN) collectively form the ordering service which batch transactions in blocks and establish a global total order (blockchain).
 
-In the Fabric network, peer are divided into multiple *organizations* and each organization forms a trust domain, where a peer trusts all other pears. Organizations may create channels with other organization and channels are confidential to outside organizations. In fact, each channel is a blockchain. The *membership service provider* (MSP) maintains the identities of all nodes in the Fabric network such that only authenticated nodes (i.e. clients, peers) such that only authenticated nodes can iterative with the Fabric network and channels.
+In the Fabric network, peer are divided into multiple *organizations* and each organization forms a trust domain, where a peer trusts all other pears. Organizations may create channels with other organization and channels are confidential to outside organizations. In fact, each channel is a blockchain. The *membership service provider* (MSP) maintains the identities of all nodes in the Fabric network such that only authenticated nodes (e.g. clients, peers) such that only authenticated nodes can iterative with the Fabric network and channels.
 
-Channels are logically isolated but physically co-located in peer nodes (i.e. a node runs 2 channels). Each organization has it's own OSNs and peer nodes to avoid trusting other organizations.
+Channels are logically isolated but physically co-located in peer nodes (e.g. a node runs 2 channels). Each organization has it's own OSNs and peer nodes to avoid trusting other organizations.
 ![](./images/pasted-image-20251027104818.png)
 ## Methods
 ### execute-order-validate
-in *Bitcoin* architecture, miners executes transactions, batch transactions into blocks, and then use Proof of Work (POW) to establish the global order of blocks, where miners solve a computational hash puzzle to calculate a number which makes the the hash value of the current block equals to the preceding block. After ordering, the newly-created block is spread to all other nodes and execute. Note, Bitcoin only maintain eventual consistency, transactions are deemed committed once the the newly-created block is in the longest chain. 
+in *Bitcoin* architecture, miners executes transactions, batch transactions into blocks, and then use Proof of Work (POW) to establish the global order of blocks, where miners solve a computational hash puzzle to calculate a number which makes the the hash value of the current block equals to the preceding block. After ordering, the newly-created block is spread to all other nodes and execute. Note, Bitcoin only maintain eventual consistency, transactions are deemed committed once the the newly-created block is in the longest chain.
 
-The idea of execute-order-validate model adopts optimistic concurrency control in database systems. Basically, OCC executes transactions and produce a read-set and write-set, denoting the blockchain key/value pairs and corresponding versions to read and write respectively. Then, the database transaction manger uses the read-set and write-set to check conflicts (i.e. the read-set is modified by a commited transaction during execution). If conflicts exist, the transaction is invalid and rollback. The validation stage implies ordering.
+The idea of execute-order-validate model adopts optimistic concurrency control in database systems. Basically, OCC executes transactions and produce a read-set and write-set, denoting the blockchain key/value pairs and corresponding versions to read and write respectively. Then, the database transaction manger uses the read-set and write-set to check conflicts (e.g. the read-set is modified by a commited transaction during execution). If conflicts exist, the transaction is invalid and rollback. The validation stage implies ordering.
 
 ![](./images/pasted-image-20251027104740.png)
 Let's dive in the execute-order-validate model.
@@ -79,7 +79,7 @@ Let's dive in the execute-order-validate model.
 Note, the protocol is executed on a set of endorser peers but broadcast to all peers. In this sense, the replication is a mix of passive replication (FSM, peers receive log and execute) and active replication (primary-backup, primary sends states and backups apply).
 ![](./images/198274892365798.png)
 #### Execution Phrase
-Each transaction protocol contains the chaincode ID, client ID and etc. The chaincode uses `GetState`/`PutState` to access the blockchain ledger and is not supposed to maintain local states. 
+Each transaction protocol contains the chaincode ID, client ID and etc. The chaincode uses `GetState`/`PutState` to access the blockchain ledger and is not supposed to maintain local states.
 
 The chaincode is packed as a container and executed on a set of endorser nodes. All state mutations are based on the local *ledger* and scoped exclusively to chaincode. The local ledger is a versioned key-value store to support OCC. Each peer has it's own local ledger and each local ledger serves as a replica of the *logical* blockchain ledger.
 
@@ -117,7 +117,7 @@ To temper the Fabric system, the cracker has to control *a* CA system (private k
 ## Thoughts
 From a tech prospective, Hyperledger Fabric trades some degree decentralization for better throughput. As a permissioned blockchain, it's philosophy and design completely diverge from public blockchains.
 
-The permissioned blockchain serves as a *neutral third party platform* for organizations that do not trust each other completely. If there is already a trusted third parity platform (i.e. Amazon for consumers and producers), permission blockchains are useless.
+The permissioned blockchain serves as a *neutral third party platform* for organizations that do not trust each other completely. If there is already a trusted third parity platform (e.g. Amazon for consumers and producers), permission blockchains are useless.
 
 ## Questions and Answers
 

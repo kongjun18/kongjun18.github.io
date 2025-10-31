@@ -1,7 +1,7 @@
 ---
 title: "[Paper Note] Supporting Our AI Overlords Redesigning Data Systems to be Agent-first"
 date: 2025-10-30
-mdate: 2025-10-30T23:24:01-07:00
+mdate: 2025-10-30T23:29:18-07:00
 comment: true
 weight: 0
 author:
@@ -49,7 +49,7 @@ The solution formulation stage is akin to normal workload, while the exploration
 ## Architecture
 The basic idea is to expose more information to AI agents, and integrate agents internally to make itself smart.
 
-In the architecture, the internal interpreter agent is designed for understanding natural language (NL) requests. Sleeper agents synthesize current database states and give feedback to AI agents. Probe Optimizer optimized execution plans based on agent probes. 
+In the architecture, the internal interpreter agent is designed for understanding natural language (NL) requests. Sleeper agents synthesize current database states and give feedback to AI agents. Probe Optimizer optimized execution plans based on agent probes.
 
 Agentic Memory Store serves as a cache system for agent requests, and Shared Txn Manager implemented branch isolation of transactions.
 ![](./images/pasted-image-20251030223041.png)
@@ -66,7 +66,7 @@ The basic idea is to give feedback and advice to agents.
 - Cost Estimates and Cost-Based Feedback: Attach cost estimates to responses such that agents can adjust their strategies.
 
 
-### Probe Optimizations 
+### Probe Optimizations
 The goal is to process queries based on contexts instead of blindly.
 - Support Probes Natively: Ai-native data systems always keeps in mind that not all queries are conventional queries and process queries based on the probe stages (e.g. exploration or solution formulation).
 - Decides *What* Queries to Execute and What Degree of *Approximation*: Some probes are unnecessary and others (e.g. coarse-grained probes) do not need complete accuracy.
@@ -80,6 +80,5 @@ The goal is to process queries based on contexts instead of blindly.
 The future world MUST be an AI-native world both digitally and physically. In this sense, all present-day systems have to transform into AI-native systems, data systems are no exception.
 
 
----
 ## References
 - PAPER *Supporting Our AI Overlords: Redesigning Data Systems to be Agent-first*
