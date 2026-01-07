@@ -26,4 +26,4 @@ My research focuses on database systems and LLM inference.
 # Contract Me
 - <a href="https://github.com/kongjun18" title="GitHub" target="_blank" rel="external nofollow noopener noreferrer me"><i class="fa-brands fa-github-alt fa-fw" aria-hidden="true"></i>Github</a>
 - <a href="mailto:jkong123@asu.edu" title="Email" rel=" me"><i class="fa-regular fa-envelope fa-fw" aria-hidden="true"></i>Email</a>
-- <a href="./Jun-Kong-CV-2025-10-20.pdf"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>CV</a>
+- <a href="./Jun-Kong-CV-2026-01-05.pdf"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>CV</a>
